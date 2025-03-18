@@ -1,6 +1,7 @@
 """
 Módulo para processamento de imagens
 Contém a classe ImageProcessor que gerencia operações de imagem
+Versão 2.0 - Processamento otimizado e novas funcionalidades
 """
 
 import cv2
@@ -8,6 +9,7 @@ import numpy as np
 from PIL import Image, ImageTk
 import re
 from typing import List, Tuple, Optional, Union
+import io
 
 class ImageProcessor:
     """
@@ -25,6 +27,9 @@ class ImageProcessor:
         
         # Verifica se o OCR está disponível
         self.ocr_available = self._check_ocr_available()
+        
+        # Cache para operações de blur
+        self.blur_cache = {}
         
     def _check_ocr_available(self) -> bool:
         """Verifica se o OCR está disponível"""
@@ -66,6 +71,9 @@ class ImageProcessor:
             # Limpa as regiões sensíveis detectadas anteriormente
             self.sensitive_regions = []
             
+            # Limpa o cache de blur
+            self.blur_cache = {}
+            
             return True
         except Exception as e:
             print(f"Erro ao carregar imagem: {e}")
@@ -103,6 +111,9 @@ class ImageProcessor:
             # Limpa as regiões sensíveis detectadas anteriormente
             self.sensitive_regions = []
             
+            # Limpa o cache de blur
+            self.blur_cache = {}
+            
             return True
         except Exception as e:
             print(f"Erro ao carregar imagem do array: {e}")
@@ -137,6 +148,11 @@ class ImageProcessor:
         # Se não houver áreas marcadas, retorna a imagem sem alterações
         if np.sum(combined_mask) == 0:
             return result
+            
+        # Verifica se podemos usar o cache
+        cache_key = f"{intensity}_{iterations}_{apply_to_temp}"
+        if cache_key in self.blur_cache and not apply_to_temp:
+            return self.blur_cache[cache_key]
             
         # Otimização: Encontra a região de interesse (ROI) para aplicar o blur
         # Isso evita processar a imagem inteira quando apenas uma pequena área está marcada
@@ -183,6 +199,10 @@ class ImageProcessor:
         # Coloca a ROI processada de volta
         result[y_min:y_max, x_min:x_max] = roi_result.astype(np.uint8)
         
+        # Armazena no cache se não for uma operação temporária
+        if not apply_to_temp:
+            self.blur_cache[cache_key] = result.copy()
+        
         return result.astype(np.uint8)
     
     def commit_temp_mask(self):
@@ -193,6 +213,9 @@ class ImageProcessor:
         if self.mask is not None and self.temp_mask is not None:
             self.mask = cv2.bitwise_or(self.mask, self.temp_mask)
             self.temp_mask = np.zeros_like(self.mask)
+            
+            # Limpa o cache de blur
+            self.blur_cache = {}
     
     def clear_temp_mask(self):
         """Limpa a máscara temporária"""
@@ -214,6 +237,10 @@ class ImageProcessor:
             
         target_mask = self.temp_mask if temp else self.mask
         cv2.circle(target_mask, (int(x), int(y)), brush_size // 2, 255, -1)
+        
+        # Limpa o cache de blur se não for temporário
+        if not temp:
+            self.blur_cache = {}
     
     def draw_line(self, x1: int, y1: int, x2: int, y2: int, brush_size: int):
         """
@@ -253,6 +280,10 @@ class ImageProcessor:
         
         target_mask = self.temp_mask if temp else self.mask
         cv2.rectangle(target_mask, (int(x1), int(y1)), (int(x2), int(y2)), 255, -1)
+        
+        # Limpa o cache de blur se não for temporário
+        if not temp:
+            self.blur_cache = {}
     
     def add_ellipse_to_mask(self, x1: int, y1: int, x2: int, y2: int, temp: bool = False):
         """
@@ -274,6 +305,10 @@ class ImageProcessor:
         
         target_mask = self.temp_mask if temp else self.mask
         cv2.ellipse(target_mask, (center_x, center_y), (radius_x, radius_y), 0, 0, 360, 255, -1)
+        
+        # Limpa o cache de blur se não for temporário
+        if not temp:
+            self.blur_cache = {}
     
     def get_current_image(self, intensity: int, iterations: int, preview: bool = False) -> np.ndarray:
         """
@@ -308,12 +343,104 @@ class ImageProcessor:
             # Aplica o blur final e salva
             final_image = self.apply_blur(intensity, iterations)
             
-            # Converte de RGB para BGR para salvar com OpenCV
-            final_image = cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(file_path, final_image)
+            # Determina o formato com base na extensão
+            _, ext = file_path.lower().rsplit('.', 1)
+            
+            if ext in ['jpg', 'jpeg']:
+                # Converte de RGB para BGR para salvar com OpenCV
+                final_image = cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(file_path, final_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            elif ext == 'png':
+                # Converte de RGB para BGR para salvar com OpenCV
+                final_image = cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(file_path, final_image, [cv2.IMWRITE_PNG_COMPRESSION, 9])
+            else:
+                # Para outros formatos, usa o padrão
+                final_image = cv2.cvtColor(final_image, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(file_path, final_image)
+                
             return True
         except Exception as e:
             print(f"Erro ao salvar imagem: {e}")
+            return False
+    
+    def export_to_pdf(self, file_path: str, intensity: int, iterations: int) -> bool:
+        """
+        Exporta a imagem processada para PDF.
+        
+        Args:
+            file_path: Caminho onde o PDF será salvo
+            intensity: Intensidade do blur
+            iterations: Número de iterações do blur
+            
+        Returns:
+            True se o PDF foi salvo com sucesso, False caso contrário
+        """
+        try:
+            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.pdfgen import canvas
+            import io
+            
+            if self.current_image is None:
+                return False
+                
+            # Aplica o blur final
+            final_image = self.apply_blur(intensity, iterations)
+            
+            # Converte para PIL Image
+            pil_img = self.array_to_pil(final_image)
+            
+            # Determina o tamanho da página
+            img_width, img_height = pil_img.size
+            aspect_ratio = img_width / img_height
+            
+            # Escolhe o tamanho da página
+            if aspect_ratio > 1:  # Paisagem
+                page_width, page_height = letter
+            else:  # Retrato
+                page_width, page_height = A4
+            
+            # Calcula o tamanho da imagem no PDF
+            margin = 50  # Margem em pontos
+            max_width = page_width - 2 * margin
+            max_height = page_height - 2 * margin
+            
+            # Redimensiona a imagem para caber na página
+            if img_width / max_width > img_height / max_height:
+                # Limitado pela largura
+                new_width = max_width
+                new_height = img_height * (max_width / img_width)
+            else:
+                # Limitado pela altura
+                new_height = max_height
+                new_width = img_width * (max_height / img_height)
+            
+            # Cria o PDF
+            c = canvas.Canvas(file_path, pagesize=(page_width, page_height))
+            
+            # Posiciona a imagem no centro da página
+            x = (page_width - new_width) / 2
+            y = (page_height - new_height) / 2
+            
+            # Salva a imagem em um buffer
+            img_buffer = io.BytesIO()
+            pil_img.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
+            
+            # Adiciona a imagem ao PDF
+            c.drawImage(img_buffer, x, y, width=new_width, height=new_height)
+            
+            # Adiciona informações de metadados
+            c.setTitle("Documento Protegido - LGPD")
+            c.setAuthor("Document Protector")
+            c.setSubject("Documento com informações sensíveis protegidas")
+            
+            # Finaliza o PDF
+            c.save()
+            
+            return True
+        except Exception as e:
+            print(f"Erro ao exportar para PDF: {e}")
             return False
     
     def get_dimensions(self) -> Tuple[int, int]:
@@ -333,6 +460,9 @@ class ImageProcessor:
             self.current_image = self.original_image.copy()
             self.mask = np.zeros((self.original_image.shape[0], self.original_image.shape[1]), dtype=np.uint8)
             self.temp_mask = np.zeros_like(self.mask)
+            
+            # Limpa o cache de blur
+            self.blur_cache = {}
     
     def create_thumbnail(self, width: int = 100, height: int = 100) -> Optional[ImageTk.PhotoImage]:
         """
@@ -412,7 +542,8 @@ class ImageProcessor:
                 'email': r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
                 'telefone': r'(?:\+\d{2})?$$?\d{2}$$?\s*\d{4,5}-?\d{4}',
                 'data': r'\d{2}/\d{2}/\d{4}',
-                'cep': r'\d{5}-?\d{3}'
+                'cep': r'\d{5}-?\d{3}',
+                'cartao': r'\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}'
             }
             
             # Lista para armazenar as regiões sensíveis
@@ -464,4 +595,7 @@ class ImageProcessor:
         for x, y, w, h in self.sensitive_regions:
             # Adiciona um retângulo à máscara para cada região sensível
             cv2.rectangle(self.mask, (x, y), (x + w, y + h), 255, -1)
+            
+        # Limpa o cache de blur
+        self.blur_cache = {}
 

@@ -1,6 +1,7 @@
 """
 Módulo para gerenciamento de histórico
-Contém a classe OptimizedHistoryManager que gerencia o histórico de edições
+Contém a classe HistoryManager que gerencia o histórico de edições
+Versão 2.0 - Otimizado para melhor performance e menor uso de memória
 """
 
 import time
@@ -8,6 +9,7 @@ import cv2
 import numpy as np
 from PIL import ImageTk
 from typing import List, Dict, Tuple, Optional, Any
+import zlib
 
 class CompressedPatch:
     """
@@ -31,7 +33,6 @@ class CompressedPatch:
         self.width = width
         self.height = height
         # Comprime os dados usando zlib para economizar memória
-        import zlib
         self.compressed_data = zlib.compress(data.tobytes())
     
     def get_data(self) -> np.ndarray:
@@ -42,19 +43,18 @@ class CompressedPatch:
             Array NumPy com os dados descomprimidos
         """
         # Descomprime os dados
-        import zlib
         decompressed = zlib.decompress(self.compressed_data)
         # Reconstrói o array NumPy
         return np.frombuffer(decompressed, dtype=np.uint8).reshape(self.height, self.width)
 
 
-class OptimizedHistoryManager:
+class HistoryManager:
     """
     Gerenciador de histórico otimizado que armazena apenas as áreas modificadas.
     Usa compressão para reduzir o consumo de memória.
     """
     
-    def __init__(self, max_history: int = 20):
+    def __init__(self, max_history: int = 30):
         """
         Inicializa o gerenciador de histórico.
         
@@ -87,7 +87,9 @@ class OptimizedHistoryManager:
         # Adiciona o novo estado
         self.history.append({
             'patches': patches,
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'intensity': intensity,
+            'iterations': iterations
         })
         
         # Cria uma miniatura para este estado
