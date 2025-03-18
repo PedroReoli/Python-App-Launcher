@@ -1,0 +1,20 @@
+{
+    "brush_size": 34,
+    "blur_intensity": 27,
+    "blur_iterations": 5,
+    "auto_save_enabled": false,
+    "auto_save_interval": 5,
+    "show_preview": true,
+    "last_directory": "C:/Users/Autocom3/Downloads",
+    "theme": "light",
+    "keyboard_shortcuts": {
+        "save": "<Control-s>",
+        "open": "<Control-o>",
+        "undo": "<Control-z>",
+        "redo": "<Control-y>",
+        "clear": "<Control-r>",
+        "zoom_in": "<Control-plus>",
+        "zoom_out": "<Control-minus>",
+        "zoom_reset": "<Control-0>"
+    }
+}
