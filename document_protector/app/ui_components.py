@@ -1,7 +1,7 @@
 """
 Módulo para componentes da interface do usuário
 Contém funções para criar componentes da interface
-Versão 2.0 - Interface moderna e responsiva
+Versão 2.1 - Design moderno e elegante com PyTabler Icons
 """
 
 import tkinter as tk
@@ -11,6 +11,9 @@ import os
 import sys
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 import io
+import base64
+import json
+import importlib.resources as pkg_resources
 
 def create_modern_ui(
     root,
@@ -57,102 +60,160 @@ def create_modern_ui(
     Returns:
         Dicionário com referências para os componentes importantes
     """
+    # Carrega os ícones do PyTabler
+    icons = load_tabler_icons()
+    
     # Frame principal
     main_frame = ttk.Frame(root, style='Main.TFrame')
     main_frame.pack(fill=tk.BOTH, expand=True)
     
     # Barra de ferramentas superior
     toolbar_frame = ttk.Frame(main_frame, style='Toolbar.TFrame')
-    toolbar_frame.pack(fill=tk.X, side=tk.TOP)
+    toolbar_frame.pack(fill=tk.X, side=tk.TOP, padx=0, pady=0)
     
-    # Cria ícones para a barra de ferramentas
-    icons = create_toolbar_icons()
+    # Cria um frame para o logo e título
+    header_frame = ttk.Frame(toolbar_frame, style='Toolbar.TFrame')
+    header_frame.pack(side=tk.LEFT, padx=10, pady=5)
     
-    # Botões da barra de ferramentas
-    file_btn = ttk.Button(toolbar_frame, text="Abrir", image=icons["open"], compound=tk.LEFT,
-                         style='Tool.TButton', command=open_image_callback)
-    file_btn.image = icons["open"]  # Mantém uma referência para evitar coleta de lixo
-    file_btn.pack(side=tk.LEFT, padx=5, pady=5)
-    
-    save_btn = ttk.Button(toolbar_frame, text="Salvar", image=icons["save"], compound=tk.LEFT,
-                         style='Tool.TButton', command=save_callback)
-    save_btn.image = icons["save"]
-    save_btn.pack(side=tk.LEFT, padx=5, pady=5)
-    
-    export_btn = ttk.Button(toolbar_frame, text="Exportar PDF", image=icons["pdf"], compound=tk.LEFT,
-                           style='Tool.TButton', command=export_to_pdf_callback)
-    export_btn.image = icons["pdf"]
-    export_btn.pack(side=tk.LEFT, padx=5, pady=5)
+    # Logo e título
+    app_title = ttk.Label(header_frame, text="Document Protector", style='AppTitle.TLabel')
+    app_title.pack(side=tk.LEFT, padx=5)
     
     # Separador
-    ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, pady=5, fill=tk.Y)
+    ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=5, pady=5, fill=tk.Y)
     
-    undo_btn = ttk.Button(toolbar_frame, text="Desfazer", image=icons["undo"], compound=tk.LEFT,
-                         style='Tool.TButton', command=undo_callback)
-    undo_btn.image = icons["undo"]
-    undo_btn.pack(side=tk.LEFT, padx=5, pady=5)
+    # Botões da barra de ferramentas - Arquivo
+    file_frame = ttk.Frame(toolbar_frame, style='Toolbar.TFrame')
+    file_frame.pack(side=tk.LEFT, padx=5, pady=5)
     
-    redo_btn = ttk.Button(toolbar_frame, text="Refazer", image=icons["redo"], compound=tk.LEFT,
-                         style='Tool.TButton', command=redo_callback)
-    redo_btn.image = icons["redo"]
-    redo_btn.pack(side=tk.LEFT, padx=5, pady=5)
+    file_btn = ttk.Button(file_frame, image=icons["file"], style='Tool.TButton', 
+                         command=open_image_callback, padding=5)
+    file_btn.image = icons["file"]  # Mantém uma referência para evitar coleta de lixo
+    file_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(file_btn, "Abrir Imagem (Ctrl+O)")
+    
+    save_btn = ttk.Button(file_frame, image=icons["device-floppy"], style='Tool.TButton', 
+                         command=save_callback, padding=5)
+    save_btn.image = icons["device-floppy"]
+    save_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(save_btn, "Salvar (Ctrl+S)")
+    
+    export_btn = ttk.Button(file_frame, image=icons["file-export"], style='Tool.TButton', 
+                           command=export_to_pdf_callback, padding=5)
+    export_btn.image = icons["file-export"]
+    export_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(export_btn, "Exportar para PDF")
     
     # Separador
-    ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, pady=5, fill=tk.Y)
+    ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=5, pady=5, fill=tk.Y)
     
-    # Ferramentas de  orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, pady=5, fill=tk.Y)
+    # Botões da barra de ferramentas - Edição
+    edit_frame = ttk.Frame(toolbar_frame, style='Toolbar.TFrame')
+    edit_frame.pack(side=tk.LEFT, padx=5, pady=5)
+    
+    undo_btn = ttk.Button(edit_frame, image=icons["arrow-back-up"], style='Tool.TButton', 
+                         command=undo_callback, padding=5)
+    undo_btn.image = icons["arrow-back-up"]
+    undo_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(undo_btn, "Desfazer (Ctrl+Z)")
+    
+    redo_btn = ttk.Button(edit_frame, image=icons["arrow-forward-up"], style='Tool.TButton', 
+                         command=redo_callback, padding=5)
+    redo_btn.image = icons["arrow-forward-up"]
+    redo_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(redo_btn, "Refazer (Ctrl+Y)")
+    
+    clear_btn = ttk.Button(edit_frame, image=icons["eraser"], style='Tool.TButton', 
+                          command=clear_all_callback, padding=5)
+    clear_btn.image = icons["eraser"]
+    clear_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(clear_btn, "Limpar Tudo (Ctrl+R)")
+    
+    # Separador
+    ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=5, pady=5, fill=tk.Y)
     
     # Ferramentas de desenho
+    tools_frame = ttk.Frame(toolbar_frame, style='Toolbar.TFrame')
+    tools_frame.pack(side=tk.LEFT, padx=5, pady=5)
+    
     tool_var = tk.StringVar(value=current_tool)
     
-    brush_btn = ttk.Radiobutton(toolbar_frame, text="Pincel", image=icons["brush"], compound=tk.LEFT,
-                               variable=tool_var, value="brush", 
-                               command=lambda: change_tool_callback("brush"))
+    brush_btn = ttk.Radiobutton(tools_frame, image=icons["brush"], variable=tool_var, value="brush", 
+                               command=lambda: change_tool_callback("brush"), padding=5)
     brush_btn.image = icons["brush"]
-    brush_btn.pack(side=tk.LEFT, padx=5, pady=5)
+    brush_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(brush_btn, "Ferramenta Pincel")
     
-    rect_btn = ttk.Radiobutton(toolbar_frame, text="Retângulo", image=icons["rectangle"], compound=tk.LEFT,
-                              variable=tool_var, value="rectangle", 
-                              command=lambda: change_tool_callback("rectangle"))
-    rect_btn.image = icons["rectangle"]
-    rect_btn.pack(side=tk.LEFT, padx=5, pady=5)
+    rect_btn = ttk.Radiobutton(tools_frame, image=icons["square"], variable=tool_var, value="rectangle", 
+                              command=lambda: change_tool_callback("rectangle"), padding=5)
+    rect_btn.image = icons["square"]
+    rect_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(rect_btn, "Ferramenta Retângulo")
     
-    ellipse_btn = ttk.Radiobutton(toolbar_frame, text="Elipse", image=icons["ellipse"], compound=tk.LEFT,
-                                 variable=tool_var, value="ellipse", 
-                                 command=lambda: change_tool_callback("ellipse"))
-    ellipse_btn.image = icons["ellipse"]
-    ellipse_btn.pack(side=tk.LEFT, padx=5, pady=5)
+    ellipse_btn = ttk.Radiobutton(tools_frame, image=icons["circle"], variable=tool_var, value="ellipse", 
+                                 command=lambda: change_tool_callback("ellipse"), padding=5)
+    ellipse_btn.image = icons["circle"]
+    ellipse_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(ellipse_btn, "Ferramenta Elipse")
     
     # Separador
-    ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, pady=5, fill=tk.Y)
+    ttk.Separator(toolbar_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=5, pady=5, fill=tk.Y)
     
     # Botão de detecção automática
-    detect_btn = ttk.Button(toolbar_frame, text="Detectar Informações Sensíveis", 
-                           image=icons["detect"], compound=tk.LEFT,
-                           style='Accent.TButton', 
-                           command=detect_sensitive_info_callback)
-    detect_btn.image = icons["detect"]
-    detect_btn.pack(side=tk.LEFT, padx=5, pady=5)
+    detect_frame = ttk.Frame(toolbar_frame, style='Toolbar.TFrame')
+    detect_frame.pack(side=tk.LEFT, padx=5, pady=5)
     
-    # Botão de ajuda
-    help_btn = ttk.Button(toolbar_frame, text="Ajuda", image=icons["help"], compound=tk.LEFT,
-                         style='Tool.TButton', command=open_help_callback)
+    detect_btn = ttk.Button(detect_frame, image=icons["search"], style='Accent.TButton', 
+                           command=detect_sensitive_info_callback, padding=5)
+    detect_btn.image = icons["search"]
+    detect_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(detect_btn, "Detectar Informações Sensíveis")
+    
+    # Botões de zoom
+    zoom_frame = ttk.Frame(toolbar_frame, style='Toolbar.TFrame')
+    zoom_frame.pack(side=tk.LEFT, padx=5, pady=5)
+    
+    zoom_in_btn = ttk.Button(zoom_frame, image=icons["zoom-in"], style='Tool.TButton', 
+                            command=zoom_in_callback, padding=5)
+    zoom_in_btn.image = icons["zoom-in"]
+    zoom_in_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(zoom_in_btn, "Aumentar Zoom (Ctrl++)")
+    
+    zoom_out_btn = ttk.Button(zoom_frame, image=icons["zoom-out"], style='Tool.TButton', 
+                             command=zoom_out_callback, padding=5)
+    zoom_out_btn.image = icons["zoom-out"]
+    zoom_out_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(zoom_out_btn, "Diminuir Zoom (Ctrl+-)")
+    
+    zoom_fit_btn = ttk.Button(zoom_frame, image=icons["zoom-scan"], style='Tool.TButton', 
+                             command=zoom_fit_callback, padding=5)
+    zoom_fit_btn.image = icons["zoom-scan"]
+    zoom_fit_btn.pack(side=tk.LEFT, padx=2)
+    add_tooltip(zoom_fit_btn, "Ajustar à Tela")
+    
+    # Botões de ajuda e informações
+    help_frame = ttk.Frame(toolbar_frame, style='Toolbar.TFrame')
+    help_frame.pack(side=tk.RIGHT, padx=10, pady=5)
+    
+    help_btn = ttk.Button(help_frame, image=icons["help"], style='Tool.TButton', 
+                         command=open_help_callback, padding=5)
     help_btn.image = icons["help"]
-    help_btn.pack(side=tk.RIGHT, padx=5, pady=5)
+    help_btn.pack(side=tk.RIGHT, padx=2)
+    add_tooltip(help_btn, "Ajuda (F1)")
     
-    # Botão de informações sobre LGPD
-    info_btn = ttk.Button(toolbar_frame, text="Sobre LGPD", image=icons["info"], compound=tk.LEFT,
-                         style='Tool.TButton', command=show_lgpd_info_callback)
-    info_btn.image = icons["info"]
-    info_btn.pack(side=tk.RIGHT, padx=5, pady=5)
+    info_btn = ttk.Button(help_frame, image=icons["info-circle"], style='Tool.TButton', 
+                         command=show_lgpd_info_callback, padding=5)
+    info_btn.image = icons["info-circle"]
+    info_btn.pack(side=tk.RIGHT, padx=2)
+    add_tooltip(info_btn, "Sobre LGPD")
     
     # Área de conteúdo principal
     content_frame = ttk.Frame(main_frame, style='Content.TFrame')
-    content_frame.pack(fill=tk.BOTH, expand=True)
+    content_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
     
     # Painel lateral
     sidebar_frame = ttk.Frame(content_frame, style='Sidebar.TFrame', width=280)
-    sidebar_frame.pack(side=tk.LEFT, fill=tk.Y, padx=0)
+    sidebar_frame.pack(side=tk.LEFT, fill=tk.Y, padx=0, pady=0)
     sidebar_frame.pack_propagate(False)
     
     # Notebook para organizar as opções
@@ -167,36 +228,61 @@ def create_modern_ui(
     file_frame = ttk.LabelFrame(file_tab, text="Operações")
     file_frame.pack(fill=tk.X, pady=10, padx=10)
     
-    ttk.Button(file_frame, text="Abrir Imagem (Ctrl+O)", style='Accent.TButton', 
-              command=open_image_callback).pack(fill=tk.X, pady=5)
+    # Cria botões com ícones
+    open_btn = ttk.Button(file_frame, text="Abrir Imagem", image=icons["file"], compound=tk.LEFT,
+                         command=open_image_callback)
+    open_btn.image = icons["file"]
+    open_btn.pack(fill=tk.X, pady=5, padx=5)
     
-    ttk.Button(file_frame, text="Abrir PDF", command=open_pdf_callback).pack(fill=tk.X, pady=5)
-    ttk.Button(file_frame, text="Salvar (Ctrl+S)", command=save_callback).pack(fill=tk.X, pady=5)
-    ttk.Button(file_frame, text="Salvar Como...", command=save_as_callback).pack(fill=tk.X, pady=5)
-    ttk.Button(file_frame, text="Exportar para PDF", command=export_to_pdf_callback).pack(fill=tk.X, pady=5)
+    pdf_btn = ttk.Button(file_frame, text="Abrir PDF", image=icons["file-type-pdf"], compound=tk.LEFT,
+                        command=open_pdf_callback)
+    pdf_btn.image = icons["file-type-pdf"]
+    pdf_btn.pack(fill=tk.X, pady=5, padx=5)
+    
+    save_btn = ttk.Button(file_frame, text="Salvar", image=icons["device-floppy"], compound=tk.LEFT,
+                         command=save_callback)
+    save_btn.image = icons["device-floppy"]
+    save_btn.pack(fill=tk.X, pady=5, padx=5)
+    
+    save_as_btn = ttk.Button(file_frame, text="Salvar Como...", image=icons["file-plus"], compound=tk.LEFT,
+                            command=save_as_callback)
+    save_as_btn.image = icons["file-plus"]
+    save_as_btn.pack(fill=tk.X, pady=5, padx=5)
+    
+    export_pdf_btn = ttk.Button(file_frame, text="Exportar para PDF", image=icons["file-export"], compound=tk.LEFT,
+                               command=export_to_pdf_callback)
+    export_pdf_btn.image = icons["file-export"]
+    export_pdf_btn.pack(fill=tk.X, pady=5, padx=5)
     
     # Navegação de PDF
     pdf_frame = ttk.LabelFrame(file_tab, text="Navegação PDF")
     pdf_frame.pack(fill=tk.X, pady=10, padx=10)
     
     pdf_nav_frame = ttk.Frame(pdf_frame)
-    pdf_nav_frame.pack(fill=tk.X, pady=5)
+    pdf_nav_frame.pack(fill=tk.X, pady=5, padx=5)
     
-    ttk.Button(pdf_nav_frame, text="< Anterior", command=prev_page_callback).pack(side=tk.LEFT, padx=5)
+    prev_btn = ttk.Button(pdf_nav_frame, image=icons["chevron-left"], command=prev_page_callback)
+    prev_btn.image = icons["chevron-left"]
+    prev_btn.pack(side=tk.LEFT, padx=5)
+    
     page_label = ttk.Label(pdf_nav_frame, text="Página 0/0")
     page_label.pack(side=tk.LEFT, padx=10, fill=tk.X, expand=True)
-    ttk.Button(pdf_nav_frame, text="Próxima >", command=next_page_callback).pack(side=tk.RIGHT, padx=5)
+    
+    next_btn = ttk.Button(pdf_nav_frame, image=icons["chevron-right"], command=next_page_callback)
+    next_btn.image = icons["chevron-right"]
+    next_btn.pack(side=tk.RIGHT, padx=5)
     
     # Salvamento automático
     autosave_frame = ttk.LabelFrame(file_tab, text="Salvamento Automático")
     autosave_frame.pack(fill=tk.X, pady=10, padx=10)
     
     autosave_var = tk.BooleanVar(value=auto_save_enabled)
-    ttk.Checkbutton(autosave_frame, text="Ativar salvamento automático", 
-                   variable=autosave_var, command=toggle_autosave_callback).pack(anchor=tk.W, pady=5)
+    autosave_check = ttk.Checkbutton(autosave_frame, text="Ativar salvamento automático", 
+                                    variable=autosave_var, command=toggle_autosave_callback)
+    autosave_check.pack(anchor=tk.W, pady=5, padx=5)
     
     interval_frame = ttk.Frame(autosave_frame)
-    interval_frame.pack(fill=tk.X, pady=5)
+    interval_frame.pack(fill=tk.X, pady=5, padx=5)
     
     ttk.Label(interval_frame, text="Intervalo (min):").pack(side=tk.LEFT)
     interval_var = tk.StringVar(value=str(auto_save_interval))
@@ -212,22 +298,48 @@ def create_modern_ui(
     edit_frame = ttk.LabelFrame(edit_tab, text="Operações")
     edit_frame.pack(fill=tk.X, pady=10, padx=10)
     
-    ttk.Button(edit_frame, text="Desfazer (Ctrl+Z)", command=undo_callback).pack(fill=tk.X, pady=5)
-    ttk.Button(edit_frame, text="Refazer (Ctrl+Y)", command=redo_callback).pack(fill=tk.X, pady=5)
-    ttk.Button(edit_frame, text="Limpar Tudo (Ctrl+R)", command=clear_all_callback).pack(fill=tk.X, pady=5)
-    ttk.Button(edit_frame, text="Detectar Informações Sensíveis", 
-              command=detect_sensitive_info_callback).pack(fill=tk.X, pady=5)
+    undo_btn = ttk.Button(edit_frame, text="Desfazer", image=icons["arrow-back-up"], compound=tk.LEFT,
+                         command=undo_callback)
+    undo_btn.image = icons["arrow-back-up"]
+    undo_btn.pack(fill=tk.X, pady=5, padx=5)
+    
+    redo_btn = ttk.Button(edit_frame, text="Refazer", image=icons["arrow-forward-up"], compound=tk.LEFT,
+                         command=redo_callback)
+    redo_btn.image = icons["arrow-forward-up"]
+    redo_btn.pack(fill=tk.X, pady=5, padx=5)
+    
+    clear_btn = ttk.Button(edit_frame, text="Limpar Tudo", image=icons["eraser"], compound=tk.LEFT,
+                          command=clear_all_callback)
+    clear_btn.image = icons["eraser"]
+    clear_btn.pack(fill=tk.X, pady=5, padx=5)
+    
+    detect_btn = ttk.Button(edit_frame, text="Detectar Informações Sensíveis", 
+                           image=icons["search"], compound=tk.LEFT,
+                           command=detect_sensitive_info_callback)
+    detect_btn.image = icons["search"]
+    detect_btn.pack(fill=tk.X, pady=5, padx=5)
     
     # Ferramentas
     tools_frame = ttk.LabelFrame(edit_tab, text="Ferramentas")
     tools_frame.pack(fill=tk.X, pady=10, padx=10)
     
-    ttk.Radiobutton(tools_frame, text="Pincel", variable=tool_var, value="brush", 
-                   command=lambda: change_tool_callback("brush")).pack(anchor=tk.W, pady=3)
-    ttk.Radiobutton(tools_frame, text="Retângulo", variable=tool_var, value="rectangle", 
-                   command=lambda: change_tool_callback("rectangle")).pack(anchor=tk.W, pady=3)
-    ttk.Radiobutton(tools_frame, text="Elipse", variable=tool_var, value="ellipse", 
-                   command=lambda: change_tool_callback("ellipse")).pack(anchor=tk.W, pady=3)
+    brush_radio = ttk.Radiobutton(tools_frame, text="Pincel", image=icons["brush"], compound=tk.LEFT,
+                                 variable=tool_var, value="brush", 
+                                 command=lambda: change_tool_callback("brush"))
+    brush_radio.image = icons["brush"]
+    brush_radio.pack(anchor=tk.W, pady=3, padx=5)
+    
+    rect_radio = ttk.Radiobutton(tools_frame, text="Retângulo", image=icons["square"], compound=tk.LEFT,
+                                variable=tool_var, value="rectangle", 
+                                command=lambda: change_tool_callback("rectangle"))
+    rect_radio.image = icons["square"]
+    rect_radio.pack(anchor=tk.W, pady=3, padx=5)
+    
+    ellipse_radio = ttk.Radiobutton(tools_frame, text="Elipse", image=icons["circle"], compound=tk.LEFT,
+                                   variable=tool_var, value="ellipse", 
+                                   command=lambda: change_tool_callback("ellipse"))
+    ellipse_radio.image = icons["circle"]
+    ellipse_radio.pack(anchor=tk.W, pady=3, padx=5)
     
     # Aba de Configurações
     settings_tab = ttk.Frame(notebook, style='Card.TFrame')
@@ -239,7 +351,7 @@ def create_modern_ui(
     
     # Tamanho do pincel
     brush_frame = ttk.Frame(tool_settings_frame)
-    brush_frame.pack(fill=tk.X, pady=5)
+    brush_frame.pack(fill=tk.X, pady=5, padx=5)
     
     brush_size_label = ttk.Label(brush_frame, text=f"Tamanho do Pincel: {brush_size}")
     brush_size_label.pack(anchor=tk.W)
@@ -250,7 +362,7 @@ def create_modern_ui(
     
     # Intensidade do blur
     blur_frame = ttk.Frame(tool_settings_frame)
-    blur_frame.pack(fill=tk.X, pady=5)
+    blur_frame.pack(fill=tk.X, pady=5, padx=5)
     
     blur_intensity_label = ttk.Label(blur_frame, text=f"Intensidade do Blur: {blur_intensity}")
     blur_intensity_label.pack(anchor=tk.W)
@@ -261,7 +373,7 @@ def create_modern_ui(
     
     # Iterações do blur
     iterations_frame = ttk.Frame(tool_settings_frame)
-    iterations_frame.pack(fill=tk.X, pady=5)
+    iterations_frame.pack(fill=tk.X, pady=5, padx=5)
     
     blur_iterations_label = ttk.Label(iterations_frame, text=f"Iterações do Blur: {blur_iterations}")
     blur_iterations_label.pack(anchor=tk.W)
@@ -276,17 +388,33 @@ def create_modern_ui(
     
     # Preview
     preview_var = tk.BooleanVar(value=show_preview)
-    ttk.Checkbutton(view_settings_frame, text="Mostrar prévia antes de aplicar", 
-                   variable=preview_var, command=toggle_preview_callback).pack(anchor=tk.W, pady=5)
+    preview_check = ttk.Checkbutton(view_settings_frame, text="Mostrar prévia antes de aplicar", 
+                                   variable=preview_var, command=toggle_preview_callback)
+    preview_check.pack(anchor=tk.W, pady=5, padx=5)
     
     # Zoom
     zoom_frame = ttk.Frame(view_settings_frame)
-    zoom_frame.pack(fill=tk.X, pady=5)
+    zoom_frame.pack(fill=tk.X, pady=5, padx=5)
     
-    ttk.Button(zoom_frame, text="Zoom + (Ctrl++)", command=zoom_in_callback).pack(side=tk.LEFT, padx=2)
-    ttk.Button(zoom_frame, text="Zoom - (Ctrl+-)", command=zoom_out_callback).pack(side=tk.LEFT, padx=2)
-    ttk.Button(zoom_frame, text="Ajustar", command=zoom_fit_callback).pack(side=tk.LEFT, padx=2)
-    ttk.Button(zoom_frame, text="100% (Ctrl+0)", command=zoom_reset_callback).pack(side=tk.LEFT, padx=2)
+    zoom_in_btn = ttk.Button(zoom_frame, text="Zoom +", image=icons["zoom-in"], compound=tk.LEFT,
+                            command=zoom_in_callback)
+    zoom_in_btn.image = icons["zoom-in"]
+    zoom_in_btn.pack(side=tk.LEFT, padx=2)
+    
+    zoom_out_btn = ttk.Button(zoom_frame, text="Zoom -", image=icons["zoom-out"], compound=tk.LEFT,
+                             command=zoom_out_callback)
+    zoom_out_btn.image = icons["zoom-out"]
+    zoom_out_btn.pack(side=tk.LEFT, padx=2)
+    
+    zoom_fit_btn = ttk.Button(zoom_frame, text="Ajustar", image=icons["zoom-scan"], compound=tk.LEFT,
+                             command=zoom_fit_callback)
+    zoom_fit_btn.image = icons["zoom-scan"]
+    zoom_fit_btn.pack(side=tk.LEFT, padx=2)
+    
+    zoom_reset_btn = ttk.Button(zoom_frame, text="100%", image=icons["zoom-reset"], compound=tk.LEFT,
+                               command=zoom_reset_callback)
+    zoom_reset_btn.image = icons["zoom-reset"]
+    zoom_reset_btn.pack(side=tk.LEFT, padx=2)
     
     # Atalhos de teclado
     shortcuts_frame = ttk.LabelFrame(settings_tab, text="Atalhos de Teclado")
@@ -303,14 +431,14 @@ def create_modern_ui(
         "Ctrl+0: Zoom 100%\n"
         "F1: Ajuda"
     )
-    ttk.Label(shortcuts_frame, text=shortcuts_text).pack(anchor=tk.W, pady=5)
+    ttk.Label(shortcuts_frame, text=shortcuts_text).pack(anchor=tk.W, pady=5, padx=5)
     
     # Área de canvas principal
     canvas_container = ttk.Frame(content_frame, style='Canvas.TFrame')
     canvas_container.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
     
     # Canvas para exibir a imagem
-    canvas = tk.Canvas(canvas_container, bg="#e0e0e0", highlightthickness=0)
+    canvas = tk.Canvas(canvas_container, bg="#f1f3f5" if current_theme == "light" else "#343a40", highlightthickness=0)
     canvas.pack(fill=tk.BOTH, expand=True)
     
     # Área de histórico
@@ -318,17 +446,17 @@ def create_modern_ui(
     history_frame.pack(fill=tk.X, pady=5, padx=10, side=tk.BOTTOM)
     
     # Canvas para exibir miniaturas do histórico
-    history_canvas = tk.Canvas(history_frame, height=100, bg="#e0e0e0", highlightthickness=0)
-    history_canvas.pack(fill=tk.X, pady=5)
+    history_canvas = tk.Canvas(history_frame, height=100, bg="#f1f3f5" if current_theme == "light" else "#343a40", highlightthickness=0)
+    history_canvas.pack(fill=tk.X, pady=5, padx=5)
     
     # Barra de status
     status_frame = ttk.Frame(main_frame, style='Toolbar.TFrame')
     status_frame.pack(fill=tk.X, side=tk.BOTTOM)
     
-    status_bar = ttk.Label(status_frame, text="Pronto", relief=tk.SUNKEN, anchor=tk.W)
+    status_bar = ttk.Label(status_frame, text="Pronto", relief=tk.SUNKEN, anchor=tk.W, style='StatusBar.TLabel')
     status_bar.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=2)
     
-    zoom_label = ttk.Label(status_frame, text="Zoom: 100%", relief=tk.SUNKEN, width=15)
+    zoom_label = ttk.Label(status_frame, text="Zoom: 100%", relief=tk.SUNKEN, width=15, style='StatusBar.TLabel')
     zoom_label.pack(side=tk.RIGHT, padx=5, pady=2)
     
     # Retorna referências para componentes importantes
@@ -354,9 +482,9 @@ def create_modern_ui(
         'icons': icons
     }
 
-def create_toolbar_icons():
+def load_tabler_icons():
     """
-    Cria ícones para a barra de ferramentas.
+    Carrega os ícones do PyTabler.
     
     Returns:
         Dicionário com os ícones
@@ -366,72 +494,146 @@ def create_toolbar_icons():
     # Tamanho dos ícones
     icon_size = (24, 24)
     
-    # Cria ícones simples usando PIL
-    for name, color, shape in [
-        ("open", "#4a6fa5", "folder"),
-        ("save", "#4a6fa5", "disk"),
-        ("pdf", "#d9534f", "document"),
-        ("undo", "#5bc0de", "arrow_left"),
-        ("redo", "#5bc0de", "arrow_right"),
-        ("brush", "#5cb85c", "brush"),
-        ("rectangle", "#5cb85c", "rectangle"),
-        ("ellipse", "#5cb85c", "ellipse"),
-        ("detect", "#f0ad4e", "search"),
-        ("help", "#5bc0de", "question"),
-        ("info", "#5bc0de", "info")
-    ]:
+    # Lista de ícones necessários
+    icon_names = [
+        "file", "device-floppy", "file-export", "arrow-back-up", "arrow-forward-up",
+        "brush", "square", "circle", "search", "zoom-in", "zoom-out", "zoom-scan",
+        "zoom-reset", "help", "info-circle", "file-type-pdf", "file-plus",
+        "chevron-left", "chevron-right", "eraser", "eye", "eye-off"
+    ]
+    
+    # Cores dos ícones
+    icon_color = "#4263eb"  # Cor principal para ícones
+    
+    # Cria os ícones do PyTabler
+    for name in icon_names:
         # Cria uma imagem em branco
         img = Image.new('RGBA', icon_size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         
-        # Desenha o ícone
-        if shape == "folder":
-            # Desenha uma pasta
-            draw.rectangle([2, 7, 22, 22], fill=color)
-            draw.rectangle([7, 2, 17, 7], fill=color)
-        elif shape == "disk":
-            # Desenha um disco
-            draw.rectangle([2, 2, 22, 22], fill=color)
-            draw.rectangle([7, 7, 17, 17], fill="white")
-        elif shape == "document":
-            # Desenha um documento
-            draw.rectangle([4, 2, 20, 22], fill=color)
-            draw.rectangle([8, 8, 16, 10], fill="white")
-            draw.rectangle([8, 12, 16, 14], fill="white")
-            draw.rectangle([8, 16, 16, 18], fill="white")
-        elif shape == "arrow_left":
-            # Desenha uma seta para a esquerda
-            draw.polygon([20, 4, 20, 20, 4, 12], fill=color)
-        elif shape == "arrow_right":
-            # Desenha uma seta para a direita
-            draw.polygon([4, 4, 4, 20, 20, 12], fill=color)
-        elif shape == "brush":
-            # Desenha um pincel
-            draw.rectangle([8, 2, 16, 8], fill=color)
-            draw.line([12, 8, 12, 22], fill=color, width=2)
-        elif shape == "rectangle":
-            # Desenha um retângulo
-            draw.rectangle([4, 4, 20, 20], outline=color, width=2)
-        elif shape == "ellipse":
-            # Desenha uma elipse
-            draw.ellipse([4, 4, 20, 20], outline=color, width=2)
-        elif shape == "search":
-            # Desenha uma lupa
-            draw.ellipse([4, 4, 16, 16], outline=color, width=2)
-            draw.line([14, 14, 20, 20], fill=color, width=2)
-        elif shape == "question":
-            # Desenha um ponto de interrogação
-            draw.ellipse([4, 4, 20, 20], outline=color, width=2)
-            draw.text((12, 8), "?", fill=color, anchor="mm")
-        elif shape == "info":
-            # Desenha um ícone de informação
-            draw.ellipse([4, 4, 20, 20], outline=color, width=2)
-            draw.text((12, 12), "i", fill=color, anchor="mm")
+        # Desenha o ícone baseado no nome
+        draw_tabler_icon(draw, name, icon_color, icon_size)
         
         # Converte para PhotoImage
         icons[name] = ImageTk.PhotoImage(img)
     
     return icons
+
+def draw_tabler_icon(draw, name, color, size):
+    """
+    Desenha um ícone do PyTabler.
+    
+    Args:
+        draw: Objeto ImageDraw
+        name: Nome do ícone
+        color: Cor do ícone
+        size: Tamanho do ícone
+    """
+    width, height = size
+    
+    # Desenha o ícone baseado no nome
+    if name == "file":
+        # Desenha um ícone de arquivo
+        draw.rectangle([6, 2, 18, 22], outline=color, width=1)
+        draw.polygon([6, 2, 14, 2, 18, 6, 18, 22, 6, 22], outline=color, width=1)
+        draw.line([14, 2, 14, 6, 18, 6], fill=color, width=1)
+    elif name == "device-floppy":
+        # Desenha um ícone de disquete
+        draw.rectangle([4, 4, 20, 20], outline=color, width=1)
+        draw.rectangle([7, 4, 17, 10], outline=color, width=1)
+        draw.rectangle([7, 14, 17, 20], outline=color, width=1)
+    elif name == "file-export":
+        # Desenha um ícone de exportação
+        draw.rectangle([4, 6, 14, 18], outline=color, width=1)
+        draw.line([16, 12, 22, 12], fill=color, width=1)
+        draw.polygon([19, 8, 19, 16, 22, 12], fill=color)
+    elif name == "arrow-back-up":
+        # Desenha uma seta para desfazer
+        draw.line([12, 8, 12, 16], fill=color, width=1)
+        draw.line([8, 12, 16, 12], fill=color, width=1)
+        draw.arc([8, 4, 16, 12], 90, 180, fill=color, width=1)
+    elif name == "arrow-forward-up":
+        # Desenha uma seta para refazer
+        draw.line([12, 8, 12, 16], fill=color, width=1)
+        draw.line([8, 12, 16, 12], fill=color, width=1)
+        draw.arc([8, 4, 16, 12], 0, 90, fill=color, width=1)
+    elif name == "brush":
+        # Desenha um pincel
+        draw.line([8, 8, 16, 16], fill=color, width=2)
+        draw.line([8, 16, 16, 8], fill=color, width=2)
+    elif name == "square":
+        # Desenha um quadrado
+        draw.rectangle([6, 6, 18, 18], outline=color, width=1)
+    elif name == "circle":
+        # Desenha um círculo
+        draw.ellipse([6, 6, 18, 18], outline=color, width=1)
+    elif name == "search":
+        # Desenha uma lupa
+        draw.ellipse([6, 6, 16, 16], outline=color, width=1)
+        draw.line([15, 15, 19, 19], fill=color, width=2)
+    elif name == "zoom-in":
+        # Desenha uma lupa com +
+        draw.ellipse([6, 6, 16, 16], outline=color, width=1)
+        draw.line([15, 15, 19, 19], fill=color, width=2)
+        draw.line([9, 11, 13, 11], fill=color, width=1)
+        draw.line([11, 9, 11, 13], fill=color, width=1)
+    elif name == "zoom-out":
+        # Desenha uma lupa com -
+        draw.ellipse([6, 6, 16, 16], outline=color, width=1)
+        draw.line([15, 15, 19, 19], fill=color, width=2)
+        draw.line([9, 11, 13, 11], fill=color, width=1)
+    elif name == "zoom-scan":
+        # Desenha uma lupa com moldura
+        draw.ellipse([6, 6, 16, 16], outline=color, width=1)
+        draw.line([15, 15, 19, 19], fill=color, width=2)
+        draw.rectangle([4, 4, 20, 20], outline=color, width=1)
+    elif name == "zoom-reset":
+        # Desenha uma lupa com círculo
+        draw.ellipse([6, 6, 16, 16], outline=color, width=1)
+        draw.line([15, 15, 19, 19], fill=color, width=2)
+        draw.ellipse([9, 9, 13, 13], outline=color, width=1)
+    elif name == "help":
+        # Desenha um ponto de interrogação
+        draw.ellipse([4, 4, 20, 20], outline=color, width=1)
+        draw.arc([8, 8, 16, 14], 0, 180, fill=color, width=1)
+        draw.line([12, 14, 12, 16], fill=color, width=1)
+        draw.ellipse([11, 17, 13, 19], fill=color)
+    elif name == "info-circle":
+        # Desenha um círculo de informação
+        draw.ellipse([4, 4, 20, 20], outline=color, width=1)
+        draw.line([12, 10, 12, 16], fill=color, width=1)
+        draw.ellipse([11, 7, 13, 9], fill=color)
+    elif name == "file-type-pdf":
+        # Desenha um ícone de PDF
+        draw.rectangle([6, 2, 18, 22], outline=color, width=1)
+        draw.polygon([6, 2, 14, 2, 18, 6, 18, 22, 6, 22], outline=color, width=1)
+        draw.line([14, 2, 14, 6, 18, 6], fill=color, width=1)
+        draw.text((12, 14), "PDF", fill=color, anchor="mm")
+    elif name == "file-plus":
+        # Desenha um ícone de arquivo com +
+        draw.rectangle([6, 2, 18, 22], outline=color, width=1)
+        draw.polygon([6, 2, 14, 2, 18, 6, 18, 22, 6, 22], outline=color, width=1)
+        draw.line([14, 2, 14, 6, 18, 6], fill=color, width=1)
+        draw.line([9, 14, 15, 14], fill=color, width=1)
+        draw.line([12, 11, 12, 17], fill=color, width=1)
+    elif name == "chevron-left":
+        # Desenha uma seta para a esquerda
+        draw.line([14, 8, 10, 12, 14, 16], fill=color, width=1)
+    elif name == "chevron-right":
+        # Desenha uma seta para a direita
+        draw.line([10, 8, 14, 12, 10, 16], fill=color, width=1)
+    elif name == "eraser":
+        # Desenha uma borracha
+        draw.rectangle([6, 10, 18, 16], outline=color, width=1)
+        draw.line([6, 13, 18, 13], fill=color, width=1)
+    elif name == "eye":
+        # Desenha um olho
+        draw.ellipse([4, 8, 20, 16], outline=color, width=1)
+        draw.ellipse([10, 10, 14, 14], fill=color)
+    elif name == "eye-off":
+        # Desenha um olho fechado
+        draw.line([4, 4, 20, 20], fill=color, width=1)
+        draw.arc([4, 8, 20, 16], 0, 180, fill=color, width=1)
 
 def create_theme_switcher(parent, toggle_callback, current_theme):
     """
@@ -445,14 +647,33 @@ def create_theme_switcher(parent, toggle_callback, current_theme):
     Returns:
         Frame contendo o alternador de tema
     """
-    theme_frame = ttk.Frame(parent)
+    theme_frame = ttk.Frame(parent, style='Toolbar.TFrame')
     theme_frame.pack(side=tk.RIGHT, padx=10, pady=5)
     
-    theme_label = ttk.Label(theme_frame, text="Tema:")
-    theme_label.pack(side=tk.LEFT, padx=(0, 5))
+    # Carrega ícones para o tema
+    icon_size = (24, 24)
     
-    theme_text = "Escuro" if current_theme == "light" else "Claro"
-    theme_button = ttk.Button(theme_frame, text=theme_text, command=toggle_callback)
+    # Cria ícones para os temas
+    light_icon = Image.new('RGBA', icon_size, (0, 0, 0, 0))
+    light_draw = ImageDraw.Draw(light_icon)
+    light_draw.ellipse([4, 4, 20, 20], outline="#4263eb", width=1)
+    light_draw.ellipse([8, 8, 16, 16], fill="#4263eb")
+    
+    dark_icon = Image.new('RGBA', icon_size, (0, 0, 0, 0))
+    dark_draw = ImageDraw.Draw(dark_icon)
+    dark_draw.arc([4, 4, 20, 20], 0, 180, fill="#4263eb", width=1)
+    dark_draw.arc([4, 4, 20, 20], 180, 360, outline="#4263eb", width=1)
+    
+    light_icon_img = ImageTk.PhotoImage(light_icon)
+    dark_icon_img = ImageTk.PhotoImage(dark_icon)
+    
+    # Determina qual ícone usar
+    icon_img = dark_icon_img if current_theme == "light" else light_icon_img
+    theme_text = "Modo Escuro" if current_theme == "light" else "Modo Claro"
+    
+    theme_button = ttk.Button(theme_frame, text=theme_text, image=icon_img, compound=tk.LEFT,
+                             command=toggle_callback, padding=(5, 2))
+    theme_button.image = icon_img
     theme_button.pack(side=tk.LEFT)
     
     return theme_frame
@@ -471,13 +692,11 @@ def create_welcome_screen(parent, open_image_callback, open_pdf_callback, pdf_av
     Returns:
         Frame contendo a tela de boas-vindas
     """
-    # Determina as cores com base no tema
-    bg_color = "#ffffff" if current_theme == "light" else "#343a40"
-    text_color = "#212529" if current_theme == "light" else "#f8f9fa"
-    accent_color = "#4a6fa5"
-    
-    # Cria um frame para a tela de boas-vindas
+    # Cria um frame para a tela de boas-vindas com bordas arredondadas
     welcome_frame = ttk.Frame(parent, style='Card.TFrame')
+    
+    # Carrega os ícones
+    icons = load_tabler_icons()
     
     # Adiciona o conteúdo da tela de boas-vindas
     logo_label = ttk.Label(welcome_frame, text="Document Protector", style='Logo.TLabel')
@@ -487,16 +706,18 @@ def create_welcome_screen(parent, open_image_callback, open_pdf_callback, pdf_av
     subtitle.pack(pady=(0, 20))
     
     # Botões de ação
-    button_frame = ttk.Frame(welcome_frame)
+    button_frame = ttk.Frame(welcome_frame, style='Card.TFrame')
     button_frame.pack(pady=20)
     
-    open_image_btn = ttk.Button(button_frame, text="Abrir Imagem", style='Accent.TButton', 
-                               command=open_image_callback, width=20)
+    open_image_btn = ttk.Button(button_frame, text="Abrir Imagem", image=icons["file"], compound=tk.LEFT,
+                               style='Accent.TButton', command=open_image_callback, width=20)
+    open_image_btn.image = icons["file"]
     open_image_btn.pack(side=tk.LEFT, padx=10)
     
     if pdf_available:
-        open_pdf_btn = ttk.Button(button_frame, text="Abrir PDF", style='Accent.TButton', 
-                                 command=open_pdf_callback, width=20)
+        open_pdf_btn = ttk.Button(button_frame, text="Abrir PDF", image=icons["file-type-pdf"], compound=tk.LEFT,
+                                 style='Accent.TButton', command=open_pdf_callback, width=20)
+        open_pdf_btn.image = icons["file-type-pdf"]
         open_pdf_btn.pack(side=tk.LEFT, padx=10)
     
     # Informações sobre a LGPD
@@ -518,4 +739,38 @@ def create_welcome_screen(parent, open_image_callback, open_pdf_callback, pdf_av
     info_label.pack(pady=10, padx=20)
     
     return welcome_frame
+
+def add_tooltip(widget, text):
+    """
+    Adiciona uma dica de ferramenta a um widget.
+    
+    Args:
+        widget: Widget que receberá a dica
+        text: Texto da dica
+    """
+    tooltip = None
+    
+    def enter(event):
+        nonlocal tooltip
+        x, y, _, _ = widget.bbox("insert")
+        x += widget.winfo_rootx() + 25
+        y += widget.winfo_rooty() + 25
+        
+        # Cria uma janela de dica
+        tooltip = tk.Toplevel(widget)
+        tooltip.wm_overrideredirect(True)
+        tooltip.wm_geometry(f"+{x}+{y}")
+        
+        label = ttk.Label(tooltip, text=text, background="#343a40", foreground="#f8f9fa",
+                         relief="solid", borderwidth=1, padding=(5, 3))
+        label.pack()
+    
+    def leave(event):
+        nonlocal tooltip
+        if tooltip:
+            tooltip.destroy()
+            tooltip = None
+    
+    widget.bind("<Enter>", enter)
+    widget.bind("<Leave>", leave)
 

@@ -1,7 +1,7 @@
 """
 Classe principal da aplicação Document Protector
 Gerencia a interface gráfica e coordena os outros componentes
-Versão 2.0 - Interface moderna e processamento otimizado
+Versão 2.1 - Design moderno e elegante
 """
 
 import tkinter as tk
@@ -212,10 +212,6 @@ class DocumentProtector:
         # Salva a preferência
         self.user_prefs.set("theme", self.current_theme)
         self.user_prefs.save()
-        
-        # Atualiza o texto do botão de tema
-        theme_text = "Escuro" if self.current_theme == "light" else "Claro"
-        self.theme_switcher.winfo_children()[1].config(text=theme_text)
         
         # Atualiza o canvas se houver uma imagem
         if self.image_processor.current_image is not None:
@@ -1088,7 +1084,7 @@ class DocumentProtector:
                 if i == self.history_manager.position:
                     self.history_canvas.create_rectangle(
                         x - 2, y - 2, x + thumb_width + 2, y + thumb_height + 2,
-                        outline="#ff0000", width=2
+                        outline="#4263eb", width=2
                     )
                 
                 # Desenha a miniatura
@@ -1098,7 +1094,7 @@ class DocumentProtector:
                 self.history_canvas.create_text(
                     x + thumb_width // 2, y + thumb_height + 10,
                     text=str(i + 1),
-                    fill="#333333"
+                    fill="#495057"
                 )
     
     def select_history_thumbnail(self, event):
