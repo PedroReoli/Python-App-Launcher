@@ -177,10 +177,6 @@ class DocumentProtector:
         self.brush_size_label = self.ui_components['brush_size_label']
         self.blur_intensity_label = self.ui_components['blur_intensity_label']
         self.blur_iterations_label = self.ui_components['blur_iterations_label']
-        self.brush_size_scale = self.ui_components['brush_size_scale']
-        self.blur_intensity_scale = self.ui_components['blur_intensity_scale']
-        self.blur_iterations_scale = self.ui_components['blur_iterations_scale']
-        self.canvas_container = self.ui_components['canvas_container']
         
         # Atualiza as dimensões do canvas
         self.update_canvas_dimensions()
@@ -659,10 +655,10 @@ class DocumentProtector:
         
         if not file_path:
             return False
-            
-        # Salva o diretório para uso futuro
-        self.user_prefs.set("last_directory", os.path.dirname(file_path))
-        self.user_prefs.save()
+        else:
+            # Salva o diretório para uso futuro
+            self.user_prefs.set("last_directory", os.path.dirname(file_path))
+            self.user_prefs.save()
         
         success = self.image_processor.save_image(file_path, self.blur_intensity, self.blur_iterations)
         if success:

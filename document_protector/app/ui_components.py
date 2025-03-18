@@ -662,7 +662,7 @@ def create_theme_switcher(parent, toggle_callback, current_theme):
     dark_icon = Image.new('RGBA', icon_size, (0, 0, 0, 0))
     dark_draw = ImageDraw.Draw(dark_icon)
     dark_draw.arc([4, 4, 20, 20], 0, 180, fill="#4263eb", width=1)
-    dark_draw.arc([4, 4, 20, 20], 180, 360, outline="#4263eb", width=1)
+    dark_draw.arc([4, 4, 20, 20], 180, 360, fill="#4263eb", width=1)
     
     light_icon_img = ImageTk.PhotoImage(light_icon)
     dark_icon_img = ImageTk.PhotoImage(dark_icon)
