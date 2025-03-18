@@ -1,12 +1,17 @@
 {
     "brush_size": 34,
-    "blur_intensity": 27,
+    "blur_intensity": 5,
     "blur_iterations": 5,
     "auto_save_enabled": false,
     "auto_save_interval": 5,
     "show_preview": true,
     "last_directory": "C:/Users/Autocom3/Downloads",
     "theme": "light",
+    "ui_settings": {
+        "show_toolbar": true,
+        "show_statusbar": true,
+        "show_history": true
+    },
     "keyboard_shortcuts": {
         "save": "<Control-s>",
         "open": "<Control-o>",
@@ -15,6 +20,12 @@
         "clear": "<Control-r>",
         "zoom_in": "<Control-plus>",
         "zoom_out": "<Control-minus>",
-        "zoom_reset": "<Control-0>"
+        "zoom_reset": "<Control-0>",
+        "help": "<F1>"
+    },
+    "export_settings": {
+        "default_format": "png",
+        "jpeg_quality": 95,
+        "png_compression": 9
     }
 }
