@@ -1,6 +1,7 @@
 """
 Classe principal da aplicação Document Protector
 Gerencia a interface gráfica e coordena os outros componentes
+Versão 2.0 - Interface moderna e processamento otimizado
 """
 
 import tkinter as tk
@@ -10,14 +11,15 @@ import threading
 import time
 from PIL import Image, ImageTk
 import sys
+import webbrowser
 
 from .image_processor import ImageProcessor
-from .history_manager import OptimizedHistoryManager
+from .history_manager import HistoryManager
 from .preferences import UserPreferences
 from .pdf_manager import PDFManager
 from .auto_save import AutoSaveManager
-from .ui_components import create_modern_ui, create_theme_switcher
-from .ui_theme import set_theme, LIGHT_THEME, DARK_THEME
+from .ui_components import create_modern_ui, create_theme_switcher, create_welcome_screen
+from .ui_theme import ThemeManager, LIGHT_THEME, DARK_THEME
 
 class DocumentProtector:
     """
@@ -36,8 +38,9 @@ class DocumentProtector:
         self.user_prefs = UserPreferences()
         
         # Configura o tema
+        self.theme_manager = ThemeManager(self.root)
         self.current_theme = self.user_prefs.get("theme", "light")
-        set_theme(self.root, LIGHT_THEME if self.current_theme == "light" else DARK_THEME)
+        self.theme_manager.set_theme(LIGHT_THEME if self.current_theme == "light" else DARK_THEME)
         
         self.setup_variables()
         self.create_ui()
@@ -53,7 +56,7 @@ class DocumentProtector:
         self.image_processor = ImageProcessor()
         
         # Gerenciador de histórico otimizado
-        self.history_manager = OptimizedHistoryManager()
+        self.history_manager = HistoryManager()
         
         # Estado da aplicação
         self.drawing = False
@@ -94,7 +97,7 @@ class DocumentProtector:
         
         # Debounce para otimização
         self.debounce_timer = None
-        self.preview_update_interval = 150  # ms - Aumentado para reduzir a frequência de atualização
+        self.preview_update_interval = 100  # ms - Intervalo para atualização do preview
         
         # Preview
         self.show_preview = self.user_prefs.get("show_preview", True)
@@ -108,6 +111,9 @@ class DocumentProtector:
         
         # Imagem atual no canvas
         self.tk_image = None
+        
+        # Tela de boas-vindas
+        self.welcome_frame = None
         
     def create_ui(self):
         """Cria a interface do usuário"""
@@ -146,7 +152,9 @@ class DocumentProtector:
             self.auto_save_interval,
             self.show_preview,
             self.current_tool,
-            self.current_theme
+            self.current_theme,
+            self.export_to_pdf,
+            self.open_help
         )
         
         # Adiciona o alternador de tema
@@ -196,14 +204,18 @@ class DocumentProtector:
         """Alterna entre os temas claro e escuro"""
         if self.current_theme == "light":
             self.current_theme = "dark"
-            set_theme(self.root, DARK_THEME)
+            self.theme_manager.set_theme(DARK_THEME)
         else:
             self.current_theme = "light"
-            set_theme(self.root, LIGHT_THEME)
+            self.theme_manager.set_theme(LIGHT_THEME)
             
         # Salva a preferência
         self.user_prefs.set("theme", self.current_theme)
         self.user_prefs.save()
+        
+        # Atualiza o texto do botão de tema
+        theme_text = "Escuro" if self.current_theme == "light" else "Claro"
+        self.theme_switcher.winfo_children()[1].config(text=theme_text)
         
         # Atualiza o canvas se houver uma imagem
         if self.image_processor.current_image is not None:
@@ -211,46 +223,14 @@ class DocumentProtector:
         
     def show_welcome_screen(self):
         """Exibe a tela de boas-vindas"""
-        # Cria um frame para a tela de boas-vindas
-        self.welcome_frame = ttk.Frame(self.canvas_container, style='Card.TFrame')
-        
-        # Adiciona o conteúdo da tela de boas-vindas
-        logo_label = ttk.Label(self.welcome_frame, text="Document Protector", style='Logo.TLabel')
-        logo_label.pack(pady=(20, 10))
-        
-        subtitle = ttk.Label(self.welcome_frame, text="Proteja seus documentos sensíveis", style='Subtitle.TLabel')
-        subtitle.pack(pady=(0, 20))
-        
-        # Botões de ação
-        button_frame = ttk.Frame(self.welcome_frame)
-        button_frame.pack(pady=20)
-        
-        open_image_btn = ttk.Button(button_frame, text="Abrir Imagem", style='Accent.TButton', 
-                                   command=self.open_image, width=20)
-        open_image_btn.pack(side=tk.LEFT, padx=10)
-        
-        if PDFManager.is_available():
-            open_pdf_btn = ttk.Button(button_frame, text="Abrir PDF", style='Accent.TButton', 
-                                     command=self.open_pdf, width=20)
-            open_pdf_btn.pack(side=tk.LEFT, padx=10)
-        
-        # Informações sobre a LGPD
-        info_frame = ttk.Frame(self.welcome_frame, style='Card.TFrame')
-        info_frame.pack(pady=20, padx=30, fill=tk.X)
-        
-        info_title = ttk.Label(info_frame, text="Lei Geral de Proteção de Dados (LGPD)", style='SectionTitle.TLabel')
-        info_title.pack(pady=(10, 5), padx=10)
-        
-        info_text = (
-            "A LGPD estabelece regras sobre coleta, armazenamento, tratamento e compartilhamento de dados pessoais.\n\n"
-            "Ao borrar informações sensíveis em documentos, você ajuda a:\n"
-            "• Proteger dados pessoais como CPF, RG, endereço, etc.\n"
-            "• Evitar o uso indevido de informações confidenciais\n"
-            "• Cumprir com as exigências legais da LGPD\n"
-            "• Proteger sua empresa de possíveis sanções"
+        # Cria a tela de boas-vindas
+        self.welcome_frame = create_welcome_screen(
+            self.canvas_container,
+            self.open_image,
+            self.open_pdf,
+            PDFManager.is_available(),
+            self.current_theme
         )
-        info_label = ttk.Label(info_frame, text=info_text, style='Info.TLabel', justify=tk.LEFT, wraplength=500)
-        info_label.pack(pady=10, padx=20)
         
         # Posiciona o frame no centro do canvas
         self.position_welcome_screen()
@@ -305,6 +285,7 @@ class DocumentProtector:
         self.root.bind("<Control-plus>", lambda event: self.zoom_in())
         self.root.bind("<Control-minus>", lambda event: self.zoom_out())
         self.root.bind("<Control-0>", lambda event: self.zoom_reset())
+        self.root.bind("<F1>", lambda event: self.open_help())
         
         # Eventos para o histórico
         self.history_canvas.bind("<Button-1>", self.select_history_thumbnail)
@@ -695,6 +676,49 @@ class DocumentProtector:
             return True
         else:
             messagebox.showerror("Erro", "Não foi possível salvar a imagem.")
+            return False
+    
+    def export_to_pdf(self):
+        """Exporta a imagem atual para PDF"""
+        if self.image_processor.current_image is None:
+            messagebox.showinfo("Informação", "Nenhuma imagem para exportar.")
+            return False
+            
+        # Obtém o diretório inicial das preferências do usuário
+        initial_dir = self.user_prefs.get("last_directory", "")
+        
+        # Sugere um nome baseado no original com sufixo "_protected"
+        default_filename = ""
+        if self.file_path:
+            filename, _ = os.path.splitext(self.file_path)
+            default_filename = f"{filename}_protected.pdf"
+        elif self.pdf_pages:
+            default_filename = f"pagina_{self.current_page_index + 1}_protegida.pdf"
+        
+        file_path = filedialog.asksaveasfilename(
+            initialdir=initial_dir,
+            defaultextension=".pdf",
+            initialfile=os.path.basename(default_filename) if default_filename else "",
+            filetypes=[
+                ("PDF", "*.pdf"),
+                ("Todos os arquivos", "*.*")
+            ]
+        )
+        
+        if not file_path:
+            return False
+            
+        # Salva o diretório para uso futuro
+        self.user_prefs.set("last_directory", os.path.dirname(file_path))
+        self.user_prefs.save()
+        
+        # Exporta para PDF
+        success = self.image_processor.export_to_pdf(file_path, self.blur_intensity, self.blur_iterations)
+        if success:
+            self.update_status(f"Imagem exportada para PDF: {os.path.basename(file_path)}")
+            return True
+        else:
+            messagebox.showerror("Erro", "Não foi possível exportar para PDF.")
             return False
     
     def update_canvas(self, force_update=False):
@@ -1305,6 +1329,94 @@ class DocumentProtector:
         """
         
         messagebox.showinfo("Sobre a LGPD", info)
+    
+    def open_help(self):
+        """Abre a documentação de ajuda"""
+        help_text = """
+        Document Protector - Ajuda
+        
+        Ferramentas:
+        - Pincel: Permite borrar áreas específicas arrastando o mouse
+        - Retângulo: Cria uma área retangular borrada
+        - Elipse: Cria uma área elíptica borrada
+        
+        Atalhos de Teclado:
+        - Ctrl+O: Abrir imagem
+        - Ctrl+S: Salvar
+        - Ctrl+Z: Desfazer
+        - Ctrl+Y: Refazer
+        - Ctrl+R: Limpar tudo
+        - Ctrl++: Aumentar zoom
+        - Ctrl+-: Diminuir zoom
+        - Ctrl+0: Zoom 100%
+        - F1: Abrir esta ajuda
+        
+        Detecção Automática:
+        A ferramenta pode detectar automaticamente informações sensíveis como:
+        - CPF e RG
+        - E-mails
+        - Telefones
+        - Datas
+        - CEPs
+        
+        Para mais informações, visite nossa documentação online.
+        """
+        
+        help_window = tk.Toplevel(self.root)
+        help_window.title("Ajuda - Document Protector")
+        help_window.geometry("600x500")
+        help_window.minsize(400, 300)
+        
+        # Configura o tema
+        self.theme_manager.apply_to_window(help_window)
+        
+        # Cria um frame para o conteúdo
+        content_frame = ttk.Frame(help_window, padding=20)
+        content_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Título
+        title_label = ttk.Label(content_frame, text="Document Protector - Ajuda", style='Logo.TLabel')
+        title_label.pack(pady=(0, 20))
+        
+        # Área de texto com scrollbar
+        text_frame = ttk.Frame(content_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        scrollbar = ttk.Scrollbar(text_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        text_widget = tk.Text(text_frame, wrap=tk.WORD, padx=10, pady=10, 
+                             bg=self.theme_manager.current_theme["bg_secondary"],
+                             fg=self.theme_manager.current_theme["text_primary"])
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Configura a scrollbar
+        scrollbar.config(command=text_widget.yview)
+        text_widget.config(yscrollcommand=scrollbar.set)
+        
+        # Insere o texto de ajuda
+        text_widget.insert(tk.END, help_text)
+        text_widget.config(state=tk.DISABLED)  # Torna o texto somente leitura
+        
+        # Botão para fechar
+        button_frame = ttk.Frame(content_frame)
+        button_frame.pack(pady=20)
+        
+        close_button = ttk.Button(button_frame, text="Fechar", command=help_window.destroy)
+        close_button.pack()
+        
+        # Botão para abrir documentação online
+        online_button = ttk.Button(button_frame, text="Documentação Online", 
+                                  command=lambda: webbrowser.open("https://lgpd.gov.br"))
+        online_button.pack(pady=(10, 0))
+        
+        # Centraliza a janela
+        help_window.update_idletasks()
+        width = help_window.winfo_width()
+        height = help_window.winfo_height()
+        x = (help_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (help_window.winfo_screenheight() // 2) - (height // 2)
+        help_window.geometry(f'{width}x{height}+{x}+{y}')
     
     def on_closing(self):
         """Manipula o evento de fechamento da janela"""
