@@ -1,3 +1,4 @@
+# Aplicacao de clique automático com PyAutoGUI
 import pyautogui
 import time
 

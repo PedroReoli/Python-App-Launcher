@@ -1,3 +1,4 @@
+# Aplicação que mostra todos os arquivos e pastas de um diretório em formato markdown, html ou json.
 import os
 import tkinter as tk
 from tkinter import filedialog, ttk, scrolledtext, messagebox, font

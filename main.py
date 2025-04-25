@@ -7,7 +7,9 @@ import threading
 import datetime
 import json
 import shutil
-from PIL import Image, ImageTk
+import psutil
+import signal
+from PIL import Image, ImageTk, ImageDraw
 import io
 import random
 import time
@@ -41,7 +43,7 @@ class PyAppLauncher:
         
         # Variáveis
         self.apps = []
-        self.running_apps = set()
+        self.running_processes = {}  # Armazenar processos em execução {file: process}
         self.cards = []
         self.current_category = "Todos"
         self.categories = ["Todos"]
@@ -65,6 +67,20 @@ class PyAppLauncher:
         # Carregar aplicações
         self.scan_apps()
         
+        # Configurar encerramento adequado
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+    
+    def on_close(self):
+        """Encerrar processos em execução antes de fechar o aplicativo"""
+        if self.running_processes:
+            if messagebox.askyesno("Confirmar Saída", 
+                                 "Existem aplicações em execução. Deseja encerrá-las e sair?"):
+                for process in self.running_processes.values():
+                    self.terminate_process(process)
+                self.root.destroy()
+        else:
+            self.root.destroy()
+    
     def configure_styles(self):
         """Configurar estilos personalizados para widgets"""
         self.style.configure("TFrame", background=self.colors["background"])
@@ -92,6 +108,9 @@ class PyAppLauncher:
         self.style.map("Danger.TButton",
                       background=[('active', "#ff4d4d")],
                       foreground=[('active', 'white')])
+        
+        # Estilo para botões pequenos
+        self.style.configure("Small.TButton", padding=2)
     
     def create_interface(self):
         """Criar a interface principal"""
@@ -199,19 +218,22 @@ class PyAppLauncher:
                     category = metadata.get("category", "Outros")
                     color = metadata.get("color", self.get_random_color())
                     last_run = metadata.get("last_run", "Nunca")
+                    icon = metadata.get("icon", "")
                 else:
                     # Criar metadados padrão
                     description = self.extract_description(app_path)
                     category = "Outros"
                     color = self.get_random_color()
                     last_run = "Nunca"
+                    icon = ""
                     
                     self.app_metadata[file] = {
                         "name": app_name,
                         "description": description,
                         "category": category,
                         "color": color,
-                        "last_run": last_run
+                        "last_run": last_run,
+                        "icon": icon
                     }
                 
                 # Adicionar app à lista
@@ -222,7 +244,8 @@ class PyAppLauncher:
                     "description": description,
                     "category": category,
                     "color": color,
-                    "last_run": last_run
+                    "last_run": last_run,
+                    "icon": icon
                 })
                 
                 # Adicionar categoria se for nova
@@ -315,7 +338,7 @@ class PyAppLauncher:
         
         # Criar grid para os cards
         row, col = 0, 0
-        max_cols = 3  # Número de colunas
+        max_cols = 4  # Número de colunas para cards quadrados
         
         for app in filtered_apps:
             # Criar card
@@ -329,74 +352,110 @@ class PyAppLauncher:
     
     def create_app_card(self, app, row, col):
         """Criar card para uma aplicação"""
-        # Frame do card
+        # Frame do card - agora quadrado
         card = ttk.Frame(self.cards_frame, style="Card.TFrame")
         card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+        
+        # Definir tamanho do card (quadrado)
+        card_size = 200
+        card.configure(width=card_size, height=card_size)
         
         # Barra colorida superior
         color_bar = tk.Frame(card, background=app["color"], height=5)
         color_bar.pack(fill=tk.X)
         
         # Conteúdo do card
-        content = ttk.Frame(card, style="Card.TFrame", padding=10)
-        content.pack(fill=tk.BOTH, expand=True)
+        content = ttk.Frame(card, style="Card.TFrame")
+        content.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        # Ícone da aplicação (primeira letra do nome)
+        icon_size = 50
+        icon_frame = tk.Frame(content, width=icon_size, height=icon_size, 
+                            background=app["color"])
+        icon_frame.pack(pady=(5, 0))
+        
+        # Manter o tamanho do frame
+        icon_frame.pack_propagate(False)
+        
+        # Texto do ícone (primeira letra)
+        icon_text = app["name"][0].upper()
+        icon_label = tk.Label(icon_frame, text=icon_text, font=("Arial", 24, "bold"),
+                            foreground="white", background=app["color"])
+        icon_label.pack(fill=tk.BOTH, expand=True)
         
         # Título
-        title = ttk.Label(content, text=app["name"], style="CardTitle.TLabel")
-        title.pack(anchor=tk.W, pady=(0, 5))
+        title = ttk.Label(content, text=app["name"], style="CardTitle.TLabel", anchor="center")
+        title.pack(fill=tk.X, pady=(5, 0))
         
         # Descrição
         desc_text = app["description"]
-        if len(desc_text) > 100:
-            desc_text = desc_text[:97] + "..."
+        if len(desc_text) > 80:
+            desc_text = desc_text[:77] + "..."
         
-        desc = ttk.Label(content, text=desc_text, style="CardDesc.TLabel", wraplength=250)
-        desc.pack(anchor=tk.W, pady=(0, 10), fill=tk.X)
+        desc = ttk.Label(content, text=desc_text, style="CardDesc.TLabel", 
+                       wraplength=card_size-20, anchor="center", justify="center")
+        desc.pack(fill=tk.X, pady=(5, 0), expand=True)
         
-        # Informações
-        info_frame = ttk.Frame(content, style="Card.TFrame")
-        info_frame.pack(fill=tk.X, pady=(0, 10))
+        # Categoria
+        category_label = ttk.Label(content, text=app["category"], 
+                                 style="CardDesc.TLabel", anchor="center")
+        category_label.pack(fill=tk.X)
         
-        category_label = ttk.Label(info_frame, text=f"Categoria: {app['category']}", 
-                                 style="CardDesc.TLabel")
-        category_label.pack(anchor=tk.W)
+        # Status de execução
+        is_running = app["file"] in self.running_processes
+        status_text = "Em execução" if is_running else "Parado"
+        status_color = self.colors["secondary"] if is_running else self.colors["text_light"]
         
-        last_run_label = ttk.Label(info_frame, text=f"Última execução: {app['last_run']}", 
-                                 style="CardDesc.TLabel")
-        last_run_label.pack(anchor=tk.W)
+        status_frame = ttk.Frame(content, style="Card.TFrame")
+        status_frame.pack(fill=tk.X, pady=(5, 0))
+        
+        status_indicator = tk.Frame(status_frame, width=8, height=8, background=status_color)
+        status_indicator.pack(side=tk.LEFT, padx=(0, 5))
+        
+        status_label = ttk.Label(status_frame, text=status_text, 
+                               style="CardDesc.TLabel", foreground=status_color)
+        status_label.pack(side=tk.LEFT)
         
         # Botões
         button_frame = ttk.Frame(content, style="Card.TFrame")
-        button_frame.pack(fill=tk.X)
+        button_frame.pack(fill=tk.X, pady=(5, 10))
         
+        # Botão Executar
         run_button = ttk.Button(button_frame, text="Executar", style="Success.TButton",
-                              command=lambda: self.run_app(app))
-        run_button.pack(side=tk.LEFT, padx=(0, 5))
+                              command=lambda: self.run_app(app),
+                              state="disabled" if is_running else "normal")
+        run_button.pack(side=tk.LEFT, padx=(0, 2), fill=tk.X, expand=True)
         
+        # Botão Parar
+        stop_button = ttk.Button(button_frame, text="Parar", style="Danger.TButton",
+                               command=lambda: self.stop_app(app),
+                               state="normal" if is_running else "disabled")
+        stop_button.pack(side=tk.LEFT, padx=2, fill=tk.X, expand=True)
+        
+        # Botão Editar
         edit_button = ttk.Button(button_frame, text="Editar", style="Primary.TButton",
                                command=lambda: self.edit_app(app))
-        edit_button.pack(side=tk.LEFT, padx=(0, 5))
+        edit_button.pack(side=tk.LEFT, padx=(2, 0), fill=tk.X, expand=True)
         
         # Configurar grid
         self.cards_frame.grid_columnconfigure(col, weight=1)
+        self.cards_frame.grid_rowconfigure(row, weight=1)
     
     def run_app(self, app):
         """Executar uma aplicação"""
-        if app["file"] in self.running_apps:
+        if app["file"] in self.running_processes:
             messagebox.showinfo("Aplicação em Execução", f"A aplicação '{app['name']}' já está em execução.")
             return
         
         try:
-            # Adicionar à lista de apps em execução
-            self.running_apps.add(app["file"])
-            
             # Atualizar status
             self.status_var.set(f"Executando: {app['name']}")
             
-            # Executar em uma thread separada
-            thread = threading.Thread(target=self._run_app_thread, args=(app,))
-            thread.daemon = True
-            thread.start()
+            # Executar o processo
+            process = subprocess.Popen([sys.executable, app["path"]])
+            
+            # Armazenar o processo
+            self.running_processes[app["file"]] = process
             
             # Atualizar última execução
             now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -409,22 +468,51 @@ class PyAppLauncher:
             
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao executar '{app['name']}': {str(e)}")
-            self.running_apps.discard(app["file"])
     
-    def _run_app_thread(self, app):
-        """Thread para executar a aplicação"""
+    def stop_app(self, app):
+        """Parar uma aplicação em execução"""
+        if app["file"] not in self.running_processes:
+            return
+        
+        process = self.running_processes[app["file"]]
+        
+        if messagebox.askyesno("Confirmar", f"Deseja encerrar a aplicação '{app['name']}'?"):
+            try:
+                # Encerrar o processo
+                self.terminate_process(process)
+                
+                # Remover da lista de processos
+                del self.running_processes[app["file"]]
+                
+                # Atualizar status
+                self.status_var.set(f"Aplicação '{app['name']}' encerrada")
+                
+                # Atualizar exibição
+                self.update_app_display()
+                
+            except Exception as e:
+                messagebox.showerror("Erro", f"Erro ao encerrar '{app['name']}': {str(e)}")
+    
+    def terminate_process(self, process):
+        """Encerrar um processo de forma segura"""
         try:
-            # Executar o processo
-            process = subprocess.Popen([sys.executable, app["path"]])
-            process.wait()
-        except Exception as e:
-            print(f"Erro ao executar '{app['name']}': {str(e)}")
-        finally:
-            # Remover da lista de apps em execução
-            self.running_apps.discard(app["file"])
-            
-            # Atualizar status
-            self.status_var.set("Pronto")
+            # Tentar encerrar o processo principal
+            if process.poll() is None:  # Se o processo ainda estiver em execução
+                if sys.platform == "win32":
+                    # No Windows, usamos taskkill para encerrar a árvore de processos
+                    subprocess.call(['taskkill', '/F', '/T', '/PID', str(process.pid)])
+                else:
+                    # No Linux/Mac, usamos psutil para encerrar a árvore de processos
+                    parent = psutil.Process(process.pid)
+                    for child in parent.children(recursive=True):
+                        child.terminate()
+                    parent.terminate()
+        except:
+            # Se falhar, tentar matar o processo
+            try:
+                process.kill()
+            except:
+                pass
     
     def edit_app(self, app):
         """Editar metadados de uma aplicação"""
@@ -650,6 +738,113 @@ def main():
         root.grid_columnconfigure(i, weight=1)
     for i in range(1, 6):
         root.grid_rowconfigure(i, weight=1)
+    
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()
+''')
+
+        # Criar outro exemplo
+        example_path2 = os.path.join(self.apps_dir, "exemplo_bloco_notas.py")
+        
+        with open(example_path2, 'w', encoding='utf-8') as f:
+            f.write('''"""
+Bloco de Notas Simples
+Um editor de texto básico para criar e editar arquivos de texto.
+"""
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+import os
+
+def main():
+    root = tk.Tk()
+    root.title("Bloco de Notas")
+    root.geometry("700x500")
+    
+    # Variáveis
+    current_file = None
+    
+    # Funções
+    def new_file():
+        text_area.delete(1.0, tk.END)
+        root.title("Bloco de Notas - Novo arquivo")
+        nonlocal current_file
+        current_file = None
+    
+    def open_file():
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Arquivos de texto", "*.txt"), ("Todos os arquivos", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, "r", encoding="utf-8") as file:
+                    content = file.read()
+                text_area.delete(1.0, tk.END)
+                text_area.insert(tk.END, content)
+                root.title(f"Bloco de Notas - {os.path.basename(file_path)}")
+                nonlocal current_file
+                current_file = file_path
+            except Exception as e:
+                messagebox.showerror("Erro", f"Não foi possível abrir o arquivo: {e}")
+    
+    def save_file():
+        nonlocal current_file
+        if current_file:
+            try:
+                content = text_area.get(1.0, tk.END)
+                with open(current_file, "w", encoding="utf-8") as file:
+                    file.write(content)
+                messagebox.showinfo("Salvo", "Arquivo salvo com sucesso!")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Não foi possível salvar o arquivo: {e}")
+        else:
+            save_as()
+    
+    def save_as():
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Arquivos de texto", "*.txt"), ("Todos os arquivos", "*.*")]
+        )
+        if file_path:
+            try:
+                content = text_area.get(1.0, tk.END)
+                with open(file_path, "w", encoding="utf-8") as file:
+                    file.write(content)
+                root.title(f"Bloco de Notas - {os.path.basename(file_path)}")
+                nonlocal current_file
+                current_file = file_path
+                messagebox.showinfo("Salvo", "Arquivo salvo com sucesso!")
+            except Exception as e:
+                messagebox.showerror("Erro", f"Não foi possível salvar o arquivo: {e}")
+    
+    # Interface
+    # Menu
+    menu_bar = tk.Menu(root)
+    
+    file_menu = tk.Menu(menu_bar, tearoff=0)
+    file_menu.add_command(label="Novo", command=new_file)
+    file_menu.add_command(label="Abrir", command=open_file)
+    file_menu.add_command(label="Salvar", command=save_file)
+    file_menu.add_command(label="Salvar como", command=save_as)
+    file_menu.add_separator()
+    file_menu.add_command(label="Sair", command=root.destroy)
+    
+    menu_bar.add_cascade(label="Arquivo", menu=file_menu)
+    
+    root.config(menu=menu_bar)
+    
+    # Área de texto
+    text_area = tk.Text(root, font=("Consolas", 12))
+    text_area.pack(expand=True, fill=tk.BOTH)
+    
+    # Scrollbar
+    scrollbar = ttk.Scrollbar(text_area)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    
+    # Configurar scrollbar
+    text_area.config(yscrollcommand=scrollbar.set)
+    scrollbar.config(command=text_area.yview)
     
     root.mainloop()
 
