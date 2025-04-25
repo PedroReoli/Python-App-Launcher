@@ -11,7 +11,7 @@
     "description": "Aplica\u00e7\u00e3o Python",
     "category": "Outros",
     "color": "#a29bfe",
-    "last_run": "Nunca",
+    "last_run": "25/04/2025 15:01",
     "icon": ""
   },
   "documentardiretorios.py": {
@@ -19,7 +19,7 @@
     "description": "Aplica\u00e7\u00e3o Python",
     "category": "Outros",
     "color": "#a29bfe",
-    "last_run": "Nunca",
+    "last_run": "25/04/2025 15:00",
     "icon": ""
   },
   "ordenador.py": {
@@ -27,7 +27,7 @@
     "description": "Caminho do arquivo de entrada L\u00ea o arquivo sem cabe\u00e7alho Seleciona a coluna B (\u00edndice 1), remove espa\u00e7os, duplicatas e ordena",
     "category": "Outros",
     "color": "#74b9ff",
-    "last_run": "Nunca",
+    "last_run": "25/04/2025 15:00",
     "icon": ""
   },
   "WebDriver.py": {
@@ -35,6 +35,14 @@
     "description": "Configura\u00e7\u00e3o do WebDriver",
     "category": "Outros",
     "color": "#6c5ce7",
+    "last_run": "25/04/2025 15:01",
+    "icon": ""
+  },
+  "TaskManager.py": {
+    "name": "Taskmanager",
+    "description": "Aplica\u00e7\u00e3o Python",
+    "category": "Outros",
+    "color": "#81ecec",
     "last_run": "Nunca",
     "icon": ""
   }
