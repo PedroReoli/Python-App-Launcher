@@ -35,7 +35,7 @@
     "description": "Configura\u00e7\u00e3o do WebDriver",
     "category": "Outros",
     "color": "#6c5ce7",
-    "last_run": "25/04/2025 15:01",
+    "last_run": "13/05/2025 10:19",
     "icon": ""
   },
   "TaskManager.py": {
@@ -44,6 +44,22 @@
     "category": "Outros",
     "color": "#81ecec",
     "last_run": "08/05/2025 07:32",
+    "icon": ""
+  },
+  "jsonMaster.py": {
+    "name": "Jsonmaster",
+    "description": "Aplica\u00e7\u00e3o Python",
+    "category": "Outros",
+    "color": "#81ecec",
+    "last_run": "13/05/2025 10:19",
+    "icon": ""
+  },
+  "JsonMasterAIPRO.py": {
+    "name": "Jsonmasteraipro",
+    "description": "Aplica\u00e7\u00e3o Python",
+    "category": "Outros",
+    "color": "#6c5ce7",
+    "last_run": "13/05/2025 10:19",
     "icon": ""
   }
 }
