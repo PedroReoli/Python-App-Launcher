@@ -5,3 +5,4 @@ __pycache__/
 *.pyd
 .env
 start.bat - Atalho.lnk
+data/runtime_data.json

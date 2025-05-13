@@ -1,11 +1,24 @@
 {
   "BrazilStatesExcel.py": {
-    "last_run": "Nunca",
-    "run_count": 0,
-    "total_runtime": 0,
-    "avg_cpu": 0,
-    "avg_memory": 0,
-    "run_history": []
+    "last_run": "13/05/2025 17:02",
+    "run_count": 2,
+    "total_runtime": 613.7224898338318,
+    "avg_cpu": 8.544155844155844,
+    "avg_memory": 95.85115665584415,
+    "run_history": [
+      {
+        "date": "13/05/2025 16:59",
+        "runtime": 288.5685873031616,
+        "avg_cpu": 7.520437956204379,
+        "avg_memory": 124.74418339416059
+      },
+      {
+        "date": "13/05/2025 17:07",
+        "runtime": 325.15390253067017,
+        "avg_cpu": 8.544155844155844,
+        "avg_memory": 95.85115665584415
+      }
+    ]
   },
   "Clicker.py": {
     "last_run": "Nunca",

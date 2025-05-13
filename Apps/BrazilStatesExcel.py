@@ -1,38 +1,34 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import customtkinter as ctk
 import pandas as pd
-import webbrowser
 import os
 import json
 import threading
-from PIL import Image, ImageTk
-
-# Importações para Google Sheets (opcionais, só serão usadas se o usuário tiver as credenciais)
-try:
-    import gspread
-    from oauth2client.service_account import ServiceAccountCredentials
-    GSPREAD_AVAILABLE = True
-except ImportError:
-    GSPREAD_AVAILABLE = False
-
-# Configuração do CustomTkinter
-ctk.set_appearance_mode("light")
-ctk.set_default_color_theme("blue")
+from functools import partial
 
 # Cores personalizadas
 PRIMARY_COLOR = "#56239f"
 SECONDARY_COLOR = "#ff7200"
 WHITE_COLOR = "#ffffff"
+LIGHT_GRAY = "#f5f5f5"
+MEDIUM_GRAY = "#e0e0e0"
+DARK_GRAY = "#9e9e9e"
 
-class EstadosApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
+class EstadosApp:
+    def __init__(self, root):
+        self.root = root
         
         # Configuração da janela principal
-        self.title("Gerenciador de Combinações de Estados")
-        self.geometry("1200x800")
-        self.configure(fg_color=WHITE_COLOR)
+        self.root.title("Gerenciador de Combinações de Estados")
+        self.root.geometry("1200x800")
+        self.root.minsize(800, 600)  # Tamanho mínimo para garantir usabilidade
+        self.root.configure(bg=WHITE_COLOR)
+        
+        # Configurar o grid para responsividade
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_rowconfigure(0, weight=0)  # Cabeçalho
+        self.root.grid_rowconfigure(1, weight=1)  # Conteúdo principal
+        self.root.grid_rowconfigure(2, weight=0)  # Barra de status
         
         # Lista de estados brasileiros
         self.estados = ["AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", 
@@ -45,130 +41,231 @@ class EstadosApp(ctk.CTk):
             for destino in self.estados:
                 self.valores[f"{origem}-{destino}"] = ""
         
+        # Variáveis para controle de edição
+        self.current_edit = None
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", self.filter_table)
+        
         self.create_widgets()
         
     def create_widgets(self):
-        # Frame principal
-        main_frame = ctk.CTkFrame(self, fg_color=WHITE_COLOR, corner_radius=0)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Frame do cabeçalho
+        header_frame = tk.Frame(self.root, bg=WHITE_COLOR, padx=20, pady=10)
+        header_frame.grid(row=0, column=0, sticky="ew")
+        header_frame.grid_columnconfigure(0, weight=1)
         
         # Título
-        title_label = ctk.CTkLabel(
-            main_frame, 
+        title_label = tk.Label(
+            header_frame, 
             text="Gerenciador de Combinações de Estados", 
-            font=ctk.CTkFont(size=24, weight="bold"),
-            text_color=PRIMARY_COLOR
+            font=("Arial", 24, "bold"),
+            fg=PRIMARY_COLOR,
+            bg=WHITE_COLOR
         )
-        title_label.pack(pady=(0, 20))
+        title_label.grid(row=0, column=0, sticky="w", pady=(0, 10))
         
         # Frame para os botões de ação
-        button_frame = ctk.CTkFrame(main_frame, fg_color=WHITE_COLOR)
-        button_frame.pack(fill=tk.X, pady=(0, 20))
+        button_frame = tk.Frame(header_frame, bg=WHITE_COLOR)
+        button_frame.grid(row=1, column=0, sticky="ew")
+        button_frame.grid_columnconfigure(4, weight=1)  # Empurra a barra de pesquisa para a direita
         
-        # Botões de ação
-        save_button = ctk.CTkButton(
+        # Botões de ação com estilo melhorado
+        button_style = {
+            "font": ("Arial", 10),
+            "borderwidth": 0,
+            "padx": 15,
+            "pady": 8,
+            "cursor": "hand2"
+        }
+        
+        save_button = tk.Button(
             button_frame, 
             text="Salvar Dados", 
             command=self.save_data,
-            fg_color=PRIMARY_COLOR,
-            hover_color=SECONDARY_COLOR
+            bg=PRIMARY_COLOR,
+            fg=WHITE_COLOR,
+            activebackground=SECONDARY_COLOR,
+            activeforeground=WHITE_COLOR,
+            **button_style
         )
-        save_button.pack(side=tk.LEFT, padx=5)
+        save_button.grid(row=0, column=0, padx=(0, 5))
         
-        load_button = ctk.CTkButton(
+        load_button = tk.Button(
             button_frame, 
             text="Carregar Dados", 
             command=self.load_data,
-            fg_color=PRIMARY_COLOR,
-            hover_color=SECONDARY_COLOR
+            bg=PRIMARY_COLOR,
+            fg=WHITE_COLOR,
+            activebackground=SECONDARY_COLOR,
+            activeforeground=WHITE_COLOR,
+            **button_style
         )
-        load_button.pack(side=tk.LEFT, padx=5)
+        load_button.grid(row=0, column=1, padx=5)
         
-        export_csv_button = ctk.CTkButton(
+        export_csv_button = tk.Button(
             button_frame, 
             text="Exportar CSV", 
             command=self.export_to_csv,
-            fg_color=PRIMARY_COLOR,
-            hover_color=SECONDARY_COLOR
+            bg=PRIMARY_COLOR,
+            fg=WHITE_COLOR,
+            activebackground=SECONDARY_COLOR,
+            activeforeground=WHITE_COLOR,
+            **button_style
         )
-        export_csv_button.pack(side=tk.LEFT, padx=5)
+        export_csv_button.grid(row=0, column=2, padx=5)
         
-        export_sheets_button = ctk.CTkButton(
+        export_excel_button = tk.Button(
             button_frame, 
-            text="Exportar para Google Sheets", 
-            command=self.export_to_sheets,
-            fg_color=SECONDARY_COLOR,
-            hover_color=PRIMARY_COLOR
+            text="Exportar Excel", 
+            command=self.export_to_excel,
+            bg=SECONDARY_COLOR,
+            fg=WHITE_COLOR,
+            activebackground=PRIMARY_COLOR,
+            activeforeground=WHITE_COLOR,
+            **button_style
         )
-        export_sheets_button.pack(side=tk.LEFT, padx=5)
+        export_excel_button.grid(row=0, column=3, padx=5)
+        
+        # Barra de pesquisa
+        search_frame = tk.Frame(button_frame, bg=WHITE_COLOR)
+        search_frame.grid(row=0, column=4, sticky="e", padx=(20, 0))
+        
+        search_label = tk.Label(
+            search_frame, 
+            text="Buscar:", 
+            fg=PRIMARY_COLOR,
+            bg=WHITE_COLOR
+        )
+        search_label.pack(side=tk.LEFT, padx=(0, 5))
+        
+        search_entry = tk.Entry(
+            search_frame,
+            textvariable=self.search_var,
+            width=15,
+            font=("Arial", 10),
+            relief=tk.SOLID,
+            borderwidth=1
+        )
+        search_entry.pack(side=tk.LEFT)
+        
+        # Frame principal para a tabela e seleção
+        main_frame = tk.Frame(self.root, bg=WHITE_COLOR, padx=20, pady=10)
+        main_frame.grid(row=1, column=0, sticky="nsew")
+        main_frame.grid_columnconfigure(0, weight=1)
+        main_frame.grid_rowconfigure(1, weight=1)
         
         # Frame para a seleção de estados
-        selection_frame = ctk.CTkFrame(main_frame, fg_color=WHITE_COLOR)
-        selection_frame.pack(fill=tk.X, pady=(0, 20))
+        selection_frame = tk.Frame(main_frame, bg=WHITE_COLOR, pady=10)
+        selection_frame.grid(row=0, column=0, sticky="ew")
         
-        # Comboboxes para seleção de estados
-        origem_label = ctk.CTkLabel(selection_frame, text="Estado de Origem:", text_color=PRIMARY_COLOR)
+        # Estilo para os labels
+        label_style = {
+            "font": ("Arial", 11),
+            "bg": WHITE_COLOR,
+            "fg": PRIMARY_COLOR
+        }
+        
+        # Estilo para os comboboxes
+        combo_style = {
+            "font": ("Arial", 10),
+            "width": 10
+        }
+        
+        # Criar um estilo personalizado para os comboboxes
+        style = ttk.Style()
+        style.configure("TCombobox", fieldbackground=WHITE_COLOR, background=WHITE_COLOR)
+        
+        origem_label = tk.Label(selection_frame, text="Estado de Origem:", **label_style)
         origem_label.pack(side=tk.LEFT, padx=(0, 5))
         
         self.origem_var = tk.StringVar()
-        self.origem_combobox = ctk.CTkComboBox(
+        self.origem_combobox = ttk.Combobox(
             selection_frame, 
             values=self.estados,
-            variable=self.origem_var,
-            width=100,
-            border_color=PRIMARY_COLOR,
-            button_color=PRIMARY_COLOR,
-            dropdown_hover_color=SECONDARY_COLOR
+            textvariable=self.origem_var,
+            **combo_style
         )
         self.origem_combobox.pack(side=tk.LEFT, padx=(0, 20))
         self.origem_combobox.set(self.estados[0])
+        self.origem_combobox.bind("<<ComboboxSelected>>", self.update_selection)
         
-        destino_label = ctk.CTkLabel(selection_frame, text="Estado de Destino:", text_color=PRIMARY_COLOR)
+        destino_label = tk.Label(selection_frame, text="Estado de Destino:", **label_style)
         destino_label.pack(side=tk.LEFT, padx=(0, 5))
         
         self.destino_var = tk.StringVar()
-        self.destino_combobox = ctk.CTkComboBox(
+        self.destino_combobox = ttk.Combobox(
             selection_frame, 
             values=self.estados,
-            variable=self.destino_var,
-            width=100,
-            border_color=PRIMARY_COLOR,
-            button_color=PRIMARY_COLOR,
-            dropdown_hover_color=SECONDARY_COLOR
+            textvariable=self.destino_var,
+            **combo_style
         )
         self.destino_combobox.pack(side=tk.LEFT, padx=(0, 20))
         self.destino_combobox.set(self.estados[0])
+        self.destino_combobox.bind("<<ComboboxSelected>>", self.update_selection)
         
-        view_button = ctk.CTkButton(
-            selection_frame, 
-            text="Visualizar Combinação", 
-            command=self.view_combination,
-            fg_color=PRIMARY_COLOR,
-            hover_color=SECONDARY_COLOR
+        valor_label = tk.Label(selection_frame, text="Valor:", **label_style)
+        valor_label.pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.valor_var = tk.StringVar()
+        self.valor_entry = tk.Entry(
+            selection_frame,
+            textvariable=self.valor_var,
+            width=15,
+            font=("Arial", 10),
+            relief=tk.SOLID,
+            borderwidth=1
         )
-        view_button.pack(side=tk.LEFT, padx=5)
+        self.valor_entry.pack(side=tk.LEFT, padx=(0, 10))
+        self.valor_entry.bind("<Return>", self.set_value)
+        
+        set_button = tk.Button(
+            selection_frame, 
+            text="Definir Valor", 
+            command=self.set_value,
+            bg=PRIMARY_COLOR,
+            fg=WHITE_COLOR,
+            activebackground=SECONDARY_COLOR,
+            activeforeground=WHITE_COLOR,
+            font=("Arial", 10),
+            borderwidth=0,
+            padx=10,
+            pady=5,
+            cursor="hand2"
+        )
+        set_button.pack(side=tk.LEFT)
         
         # Frame para a tabela
-        table_frame = ctk.CTkFrame(main_frame, fg_color=WHITE_COLOR)
-        table_frame.pack(fill=tk.BOTH, expand=True)
+        table_frame = tk.Frame(main_frame, bg=WHITE_COLOR)
+        table_frame.grid(row=1, column=0, sticky="nsew")
+        table_frame.grid_columnconfigure(0, weight=1)
+        table_frame.grid_rowconfigure(0, weight=1)
+        
+        # Criar um frame com barras de rolagem
+        table_container = tk.Frame(table_frame)
+        table_container.grid(row=0, column=0, sticky="nsew")
+        table_container.grid_columnconfigure(0, weight=1)
+        table_container.grid_rowconfigure(0, weight=1)
         
         # Criar canvas para permitir rolagem
-        canvas = tk.Canvas(table_frame, bg=WHITE_COLOR, highlightthickness=0)
-        scrollbar_y = ttk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
-        scrollbar_x = ttk.Scrollbar(table_frame, orient="horizontal", command=canvas.xview)
+        self.canvas = tk.Canvas(table_container, bg=WHITE_COLOR, highlightthickness=0)
+        scrollbar_y = ttk.Scrollbar(table_container, orient="vertical", command=self.canvas.yview)
+        scrollbar_x = ttk.Scrollbar(table_container, orient="horizontal", command=self.canvas.xview)
         
         # Configurar o canvas
-        canvas.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-        canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        self.canvas.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
         
         # Posicionar scrollbars e canvas
-        scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-        scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar_y.grid(row=0, column=1, sticky="ns")
+        scrollbar_x.grid(row=1, column=0, sticky="ew")
+        self.canvas.grid(row=0, column=0, sticky="nsew")
         
         # Frame dentro do canvas para conter a tabela
-        self.table_inner_frame = tk.Frame(canvas, bg=WHITE_COLOR)
-        canvas.create_window((0, 0), window=self.table_inner_frame, anchor="nw")
+        self.table_inner_frame = tk.Frame(self.canvas, bg=WHITE_COLOR)
+        self.canvas_window = self.canvas.create_window((0, 0), window=self.table_inner_frame, anchor="nw")
+        
+        # Configurar eventos para redimensionamento
+        self.table_inner_frame.bind("<Configure>", self.on_frame_configure)
+        self.canvas.bind("<Configure>", self.on_canvas_configure)
         
         # Criar a tabela de estados
         self.create_table()
@@ -176,113 +273,241 @@ class EstadosApp(ctk.CTk):
         # Status bar
         self.status_var = tk.StringVar()
         self.status_var.set("Pronto para uso")
-        status_bar = ctk.CTkLabel(
-            self, 
+        
+        status_bar = tk.Label(
+            self.root, 
             textvariable=self.status_var,
-            text_color=PRIMARY_COLOR,
-            fg_color="#f0f0f0",
-            corner_radius=0
+            fg=PRIMARY_COLOR,
+            bg=LIGHT_GRAY,
+            anchor="w",
+            padx=10,
+            pady=5
         )
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        status_bar.grid(row=2, column=0, sticky="ew")
+        
+        # Atualizar a seleção inicial
+        self.update_selection()
+    
+    def on_frame_configure(self, event):
+        # Atualizar a região de rolagem para acomodar o frame interno
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+    
+    def on_canvas_configure(self, event):
+        # Redimensionar a janela do canvas para preencher o espaço disponível
+        self.canvas.itemconfig(self.canvas_window, width=event.width)
     
     def create_table(self):
         # Limpar a tabela existente
         for widget in self.table_inner_frame.winfo_children():
             widget.destroy()
         
+        # Configurar o grid
+        for i in range(len(self.estados) + 1):
+            self.table_inner_frame.grid_columnconfigure(i, weight=1, minsize=60)
+            self.table_inner_frame.grid_rowconfigure(i, weight=1, minsize=30)
+        
         # Criar cabeçalhos
+        header_style = {
+            "font": ("Arial", 10, "bold"),
+            "bg": PRIMARY_COLOR,
+            "fg": WHITE_COLOR,
+            "relief": tk.RAISED,
+            "padx": 5,
+            "pady": 5,
+            "width": 5
+        }
+        
+        # Célula vazia no canto superior esquerdo
         tk.Label(
             self.table_inner_frame, 
             text="", 
-            width=5, 
-            bg=PRIMARY_COLOR, 
-            fg=WHITE_COLOR,
-            relief=tk.RAISED,
-            padx=5,
-            pady=5
+            **header_style
         ).grid(row=0, column=0, sticky="nsew")
         
+        # Cabeçalhos de coluna (estados de destino)
         for col, estado in enumerate(self.estados, 1):
             tk.Label(
                 self.table_inner_frame, 
                 text=estado, 
-                width=5, 
-                bg=PRIMARY_COLOR, 
-                fg=WHITE_COLOR,
-                relief=tk.RAISED,
-                padx=5,
-                pady=5
+                **header_style
             ).grid(row=0, column=col, sticky="nsew")
         
-        # Criar linhas
+        # Cabeçalhos de linha (estados de origem)
         for row, origem in enumerate(self.estados, 1):
             tk.Label(
                 self.table_inner_frame, 
                 text=origem, 
-                width=5, 
-                bg=PRIMARY_COLOR, 
-                fg=WHITE_COLOR,
-                relief=tk.RAISED,
-                padx=5,
-                pady=5
+                **header_style
             ).grid(row=row, column=0, sticky="nsew")
             
+            # Células de dados
             for col, destino in enumerate(self.estados, 1):
                 key = f"{origem}-{destino}"
                 
-                # Criar um frame para conter o entry e o botão
-                cell_frame = tk.Frame(self.table_inner_frame, bg=WHITE_COLOR)
-                cell_frame.grid(row=row, column=col, sticky="nsew", padx=1, pady=1)
+                # Determinar a cor de fundo da célula
+                bg_color = LIGHT_GRAY if (row + col) % 2 == 0 else WHITE_COLOR
                 
-                # Entry para o valor
-                entry = tk.Entry(
-                    cell_frame, 
-                    width=8,
+                # Criar um frame para a célula
+                cell_frame = tk.Frame(
+                    self.table_inner_frame, 
+                    bg=bg_color,
                     relief=tk.SOLID,
                     borderwidth=1
                 )
-                entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                cell_frame.grid(row=row, column=col, sticky="nsew", padx=1, pady=1)
+                cell_frame.grid_columnconfigure(0, weight=1)
+                cell_frame.grid_rowconfigure(0, weight=1)
                 
-                # Preencher com valor existente, se houver
-                if key in self.valores and self.valores[key]:
-                    entry.insert(0, self.valores[key])
-                
-                # Associar a entrada ao dicionário
-                entry.bind("<FocusOut>", lambda e, k=key, ent=entry: self.update_value(k, ent.get()))
-                
-                # Botão para abrir em nova guia
-                open_button = tk.Button(
-                    cell_frame, 
-                    text="→",
-                    bg=SECONDARY_COLOR,
-                    fg=WHITE_COLOR,
-                    relief=tk.RAISED,
-                    borderwidth=1,
-                    command=lambda o=origem, d=destino: self.open_combination(o, d)
+                # Label para mostrar o valor
+                valor = self.valores.get(key, "")
+                cell_label = tk.Label(
+                    cell_frame,
+                    text=valor if valor else "",
+                    bg=bg_color,
+                    padx=5,
+                    pady=2,
+                    anchor="center",
+                    font=("Arial", 9)
                 )
-                open_button.pack(side=tk.RIGHT)
+                cell_label.grid(row=0, column=0, sticky="nsew")
+                
+                # Configurar evento de clique para editar a célula
+                cell_label.bind("<Button-1>", partial(self.edit_cell, origem, destino))
+                
+                # Armazenar referência ao label para atualização posterior
+                self.valores[f"{origem}-{destino}_label"] = cell_label
     
-    def update_value(self, key, value):
-        self.valores[key] = value
-        self.status_var.set(f"Valor atualizado: {key} = {value}")
+    def edit_cell(self, origem, destino, event=None):
+        # Atualizar os comboboxes
+        self.origem_var.set(origem)
+        self.destino_var.set(destino)
+        
+        # Atualizar o valor atual
+        key = f"{origem}-{destino}"
+        self.valor_var.set(self.valores.get(key, ""))
+        
+        # Armazenar a célula atual sendo editada
+        self.current_edit = key
+        
+        # Destacar a célula sendo editada
+        self.highlight_cell(origem, destino)
+        
+        # Focar no campo de entrada
+        self.valor_entry.focus_set()
+        self.valor_entry.select_range(0, tk.END)
+        
+        # Atualizar status
+        self.status_var.set(f"Editando: {origem}-{destino}")
     
-    def open_combination(self, origem, destino):
-        # Aqui você pode definir a URL para abrir
-        # Por exemplo, pode ser uma página que mostra detalhes dessa combinação
-        url = f"https://example.com/estados?origem={origem}&destino={destino}"
-        webbrowser.open_new_tab(url)
-        self.status_var.set(f"Abrindo combinação {origem}-{destino} em nova guia")
+    def highlight_cell(self, origem, destino):
+        # Remover destaque de todas as células
+        for o in self.estados:
+            for d in self.estados:
+                key = f"{o}-{d}_label"
+                if key in self.valores:
+                    label = self.valores[key]
+                    row = self.estados.index(o) + 1
+                    col = self.estados.index(d) + 1
+                    bg_color = LIGHT_GRAY if (row + col) % 2 == 0 else WHITE_COLOR
+                    label.configure(bg=bg_color)
+        
+        # Destacar a célula selecionada
+        key = f"{origem}-{destino}_label"
+        if key in self.valores:
+            self.valores[key].configure(bg=SECONDARY_COLOR, fg=WHITE_COLOR)
     
-    def view_combination(self):
+    def update_selection(self, event=None):
         origem = self.origem_var.get()
         destino = self.destino_var.get()
         key = f"{origem}-{destino}"
         
+        # Atualizar o valor no campo de entrada
+        self.valor_var.set(self.valores.get(key, ""))
+        
+        # Armazenar a célula atual sendo editada
+        self.current_edit = key
+        
+        # Destacar a célula
+        self.highlight_cell(origem, destino)
+        
+        # Atualizar status
+        self.status_var.set(f"Selecionado: {origem}-{destino}")
+    
+    def set_value(self, event=None):
+        if not self.current_edit:
+            return
+        
+        # Obter o valor do campo de entrada
+        valor = self.valor_var.get()
+        
+        # Atualizar o valor no dicionário
+        self.valores[self.current_edit] = valor
+        
+        # Atualizar o label na tabela
+        key = f"{self.current_edit}_label"
         if key in self.valores:
-            valor = self.valores[key] if self.valores[key] else "Não definido"
-            messagebox.showinfo("Combinação", f"{origem}-{destino} = {valor}")
+            self.valores[key].configure(text=valor if valor else "")
+        
+        # Atualizar status
+        self.status_var.set(f"Valor atualizado: {self.current_edit} = {valor}")
+        
+        # Mover para a próxima célula (opcional)
+        self.move_to_next_cell()
+    
+    def move_to_next_cell(self):
+        if not self.current_edit:
+            return
+        
+        # Obter origem e destino atuais
+        origem, destino = self.current_edit.split("-")
+        
+        # Encontrar o próximo estado de destino
+        idx_destino = self.estados.index(destino)
+        if idx_destino < len(self.estados) - 1:
+            # Mover para o próximo estado de destino na mesma linha
+            novo_destino = self.estados[idx_destino + 1]
+            self.destino_var.set(novo_destino)
         else:
-            messagebox.showinfo("Combinação", f"Combinação {origem}-{destino} não encontrada")
+            # Mover para o primeiro estado de destino na próxima linha
+            idx_origem = self.estados.index(origem)
+            if idx_origem < len(self.estados) - 1:
+                novo_origem = self.estados[idx_origem + 1]
+                self.origem_var.set(novo_origem)
+                self.destino_var.set(self.estados[0])
+        
+        # Atualizar a seleção
+        self.update_selection()
+    
+    def filter_table(self, *args):
+        search_text = self.search_var.get().lower()
+        
+        if not search_text:
+            # Se a busca estiver vazia, mostrar todas as células
+            for origem in self.estados:
+                for destino in self.estados:
+                    key = f"{origem}-{destino}_label"
+                    if key in self.valores:
+                        self.valores[key].master.grid()
+            return
+        
+        # Filtrar células com base no texto de busca
+        for origem in self.estados:
+            for destino in self.estados:
+                key = f"{origem}-{destino}"
+                label_key = f"{key}_label"
+                
+                if label_key in self.valores:
+                    valor = self.valores.get(key, "").lower()
+                    
+                    # Verificar se o texto de busca está no valor, origem ou destino
+                    if (search_text in valor or 
+                        search_text in origem.lower() or 
+                        search_text in destino.lower()):
+                        # Mostrar a célula
+                        self.valores[label_key].master.grid()
+                    else:
+                        # Ocultar a célula
+                        self.valores[label_key].master.grid_remove()
     
     def save_data(self):
         try:
@@ -294,9 +519,16 @@ class EstadosApp(ctk.CTk):
             
             if not file_path:  # Se o usuário cancelar
                 return
+            
+            # Criar um dicionário limpo sem as referências aos labels
+            clean_data = {}
+            for key, value in self.valores.items():
+                if not key.endswith("_label"):
+                    clean_data[key] = value
                 
             with open(file_path, 'w') as f:
-                json.dump(self.valores, f)
+                json.dump(clean_data, f)
+            
             self.status_var.set(f"Dados salvos em {file_path}")
             messagebox.showinfo("Sucesso", f"Dados salvos com sucesso em {file_path}")
         except Exception as e:
@@ -315,8 +547,19 @@ class EstadosApp(ctk.CTk):
                 
             if os.path.exists(file_path):
                 with open(file_path, 'r') as f:
-                    self.valores = json.load(f)
-                self.create_table()  # Recriar a tabela com os novos valores
+                    loaded_data = json.load(f)
+                
+                # Atualizar apenas as chaves válidas (combinações de estados)
+                for key, value in loaded_data.items():
+                    if "-" in key and not key.endswith("_label"):
+                        self.valores[key] = value
+                
+                # Recriar a tabela com os novos valores
+                self.create_table()
+                
+                # Atualizar a seleção atual
+                self.update_selection()
+                
                 self.status_var.set(f"Dados carregados de {file_path}")
                 messagebox.showinfo("Sucesso", f"Dados carregados com sucesso de {file_path}")
             else:
@@ -336,7 +579,7 @@ class EstadosApp(ctk.CTk):
             
             if not file_path:  # Se o usuário cancelar
                 return
-                
+            
             # Criar um DataFrame pandas com os dados
             data = []
             for origem in self.estados:
@@ -359,18 +602,25 @@ class EstadosApp(ctk.CTk):
             self.status_var.set(f"Erro ao exportar dados: {str(e)}")
             messagebox.showerror("Erro", f"Erro ao exportar dados: {str(e)}")
     
-    def export_to_sheets(self):
-        if not GSPREAD_AVAILABLE:
-            messagebox.showwarning(
-                "Dependências Faltando", 
-                "As bibliotecas gspread e oauth2client não estão instaladas.\n"
-                "Instale-as usando: pip install gspread oauth2client"
-            )
-            return
-            
+    def export_to_excel(self):
         try:
-            # Primeiro, exportar para CSV como backup
-            csv_file = "estados_export_temp.csv"
+            # Verificar se o pandas tem suporte a Excel
+            if not hasattr(pd.DataFrame, 'to_excel'):
+                messagebox.showwarning(
+                    "Dependência Faltando", 
+                    "A exportação para Excel requer a biblioteca openpyxl.\n"
+                    "Instale-a usando: pip install openpyxl"
+                )
+                return
+            
+            file_path = filedialog.asksaveasfilename(
+                defaultextension=".xlsx",
+                filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
+                initialfile="estados_export.xlsx"
+            )
+            
+            if not file_path:  # Se o usuário cancelar
+                return
             
             # Criar um DataFrame pandas com os dados
             data = []
@@ -385,131 +635,19 @@ class EstadosApp(ctk.CTk):
             columns = ["Estado"] + self.estados
             df = pd.DataFrame(data, columns=columns)
             
-            # Salvar temporariamente como CSV
-            df.to_csv(csv_file, index=False)
+            # Salvar como Excel
+            df.to_excel(file_path, index=False, sheet_name="Combinações de Estados")
             
-            # Pedir o arquivo de credenciais
-            credentials_file = filedialog.askopenfilename(
-                title="Selecione o arquivo de credenciais do Google Cloud",
-                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-            )
-            
-            if not credentials_file:  # Se o usuário cancelar
-                # Mostrar instruções para exportação manual
-                msg = (
-                    "Para exportar manualmente para o Google Sheets:\n\n"
-                    f"1. Um arquivo CSV foi gerado: {csv_file}\n"
-                    "2. Abra o Google Sheets e crie uma nova planilha\n"
-                    "3. Vá para Arquivo > Importar > Fazer upload\n"
-                    "4. Selecione o arquivo CSV gerado"
-                )
-                messagebox.showinfo("Exportar para Google Sheets", msg)
-                webbrowser.open_new_tab("https://sheets.google.com")
-                return
-                
-            # Iniciar a exportação em uma thread separada para não bloquear a UI
-            self.status_var.set("Exportando para o Google Sheets...")
-            threading.Thread(
-                target=self._export_to_sheets_thread, 
-                args=(credentials_file, csv_file)
-            ).start()
-            
+            self.status_var.set(f"Dados exportados para {file_path}")
+            messagebox.showinfo("Sucesso", f"Dados exportados com sucesso para {file_path}")
         except Exception as e:
             self.status_var.set(f"Erro ao exportar dados: {str(e)}")
             messagebox.showerror("Erro", f"Erro ao exportar dados: {str(e)}")
-    
-    def _export_to_sheets_thread(self, credentials_file, csv_file):
-        try:
-            # Configurar as credenciais
-            SCOPE = ["https://spreadsheets.google.com/feeds", 
-                    "https://www.googleapis.com/auth/spreadsheets", 
-                    "https://www.googleapis.com/auth/drive"]
-            
-            credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_file, SCOPE)
-            client = gspread.authorize(credentials)
-            
-            # Criar uma nova planilha
-            sheet_name = "Combinações de Estados"
-            try:
-                spreadsheet = client.open(sheet_name)
-                # Se a planilha já existe, usar a primeira página
-                sheet = spreadsheet.get_worksheet(0)
-            except gspread.SpreadsheetNotFound:
-                # Se a planilha não existe, criar uma nova
-                spreadsheet = client.create(sheet_name)
-                sheet = spreadsheet.get_worksheet(0)
-            
-            # Limpar a planilha
-            sheet.clear()
-            
-            # Preencher o cabeçalho
-            header = [""] + self.estados
-            sheet.update('A1', [header])
-            
-            # Preencher os dados
-            for i, origem in enumerate(self.estados):
-                row = [origem]
-                for destino in self.estados:
-                    key = f"{origem}-{destino}"
-                    valor = self.valores.get(key, "")
-                    row.append(valor)
-                
-                # Atualizar a linha (índice+2 porque o cabeçalho é linha 1 e o índice começa em 0)
-                sheet.update(f'A{i+2}', [row])
-            
-            # Formatar o cabeçalho
-            sheet.format('A1:AA1', {
-                "backgroundColor": {
-                    "red": 0.337,
-                    "green": 0.137,
-                    "blue": 0.624
-                },
-                "textFormat": {
-                    "foregroundColor": {
-                        "red": 1.0,
-                        "green": 1.0,
-                        "blue": 1.0
-                    },
-                    "bold": True
-                }
-            })
-            
-            # Formatar a primeira coluna
-            sheet.format(f'A1:A{len(self.estados)+1}', {
-                "backgroundColor": {
-                    "red": 0.337,
-                    "green": 0.137,
-                    "blue": 0.624
-                },
-                "textFormat": {
-                    "foregroundColor": {
-                        "red": 1.0,
-                        "green": 1.0,
-                        "blue": 1.0
-                    },
-                    "bold": True
-                }
-            })
-            
-            # Atualizar a UI na thread principal
-            self.after(0, lambda: self.status_var.set(f"Planilha exportada com sucesso!"))
-            self.after(0, lambda: messagebox.showinfo(
-                "Sucesso", 
-                f"Planilha '{sheet_name}' criada e preenchida com sucesso!\nURL: {spreadsheet.url}"
-            ))
-            self.after(0, lambda: webbrowser.open_new_tab(spreadsheet.url))
-            
-        except Exception as e:
-            # Atualizar a UI na thread principal
-            self.after(0, lambda: self.status_var.set(f"Erro ao exportar para o Google Sheets: {str(e)}"))
-            self.after(0, lambda: messagebox.showerror(
-                "Erro", 
-                f"Erro ao exportar para o Google Sheets: {str(e)}"
-            ))
 
 def main():
-    app = EstadosApp()
-    app.mainloop()
+    root = tk.Tk()
+    app = EstadosApp(root)
+    root.mainloop()
 
 if __name__ == "__main__":
     main()
