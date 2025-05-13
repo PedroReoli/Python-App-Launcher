@@ -6,3 +6,5 @@ __pycache__/
 .env
 start.bat - Atalho.lnk
 data/runtime_data.json
+data/runtime_data.json
+jsonmaster.log
