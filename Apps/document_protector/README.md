@@ -1,1 +1,0 @@
-# LGPD Document Protector 
