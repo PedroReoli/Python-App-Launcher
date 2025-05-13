@@ -1,9 +1,16 @@
 {
-  "BrazilStatesExcel.py": "todo",
-  "Clicker.py": "todo",
-  "ExcelOrdenator.py": "todo",
-  "FolderStructurizer.py": "todo",
-  "GeoJsonReader.py": "todo",
-  "MacroManager.py": "todo",
-  "WebDriver.py": "todo"
+  "states": {
+    "BrazilStatesExcel.py": "A Fazer",
+    "Clicker.py": "Em Progresso",
+    "ExcelOrdenator.py": "Em Progresso",
+    "FolderStructurizer.py": "A Fazer",
+    "GeoJsonReader.py": "A Fazer",
+    "MacroManager.py": "A Fazer",
+    "WebDriver.py": "A Fazer"
+  },
+  "columns": [
+    "A Fazer",
+    "Em Progresso",
+    "Concluído"
+  ]
 }

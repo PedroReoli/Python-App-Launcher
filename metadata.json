@@ -1,7 +1,7 @@
 {
   "BrazilStatesExcel.py": {
-    "name": "Brazilstatesexcel",
-    "description": "Aplica\u00e7\u00e3o Python",
+    "name": "Aliquotas Brasil ",
+    "description": "",
     "category": "Outros",
     "color": "#55efc4",
     "icon": "",
@@ -19,7 +19,7 @@
   },
   "Clicker.py": {
     "name": "Clicker",
-    "description": "Aplicacao de clique autom\u00e1tico com PyAutoGUI",
+    "description": "Aplicacao de clique automático com PyAutoGUI",
     "category": "Outros",
     "color": "#e17055",
     "icon": "",
@@ -29,8 +29,8 @@
     ]
   },
   "ExcelOrdenator.py": {
-    "name": "Excelordenator",
-    "description": "Caminho do arquivo de entrada L\u00ea o arquivo sem cabe\u00e7alho Seleciona a coluna B (\u00edndice 1), remove espa\u00e7os, duplicatas e ordena",
+    "name": "Ordenador Excel",
+    "description": "Aplicacao Ordenadora de Excel",
     "category": "Outros",
     "color": "#81ecec",
     "icon": "",
@@ -40,8 +40,8 @@
     ]
   },
   "FolderStructurizer.py": {
-    "name": "Folderstructurizer",
-    "description": "Aplica\u00e7\u00e3o que mostra todos os arquivos e pastas de um diret\u00f3rio em formato markdown, html ou json.",
+    "name": "Estruturaçao de Pastas",
+    "description": "Mostrar arquivos de diretorios",
     "category": "Outros",
     "color": "#a29bfe",
     "icon": "",
@@ -58,8 +58,8 @@
     ]
   },
   "GeoJsonReader.py": {
-    "name": "Geojsonreader",
-    "description": "Aplica\u00e7\u00e3o Python",
+    "name": "Leitor GEO JSON",
+    "description": "Leitor de Estados GEOJSON",
     "category": "Outros",
     "color": "#fdcb6e",
     "icon": "",
@@ -89,8 +89,8 @@
     ]
   },
   "MacroManager.py": {
-    "name": "Macromanager",
-    "description": "Aplica\u00e7\u00e3o Python",
+    "name": "Gerenciador de Macros",
+    "description": "Gerencia Macros de Clique e Seleção",
     "category": "Outros",
     "color": "#55efc4",
     "icon": "",
@@ -104,7 +104,7 @@
   },
   "WebDriver.py": {
     "name": "Webdriver",
-    "description": "Configura\u00e7\u00e3o do WebDriver",
+    "description": "Configuração do WebDriver",
     "category": "Outros",
     "color": "#fab1a0",
     "icon": "",

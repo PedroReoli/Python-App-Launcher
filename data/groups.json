@@ -1,6 +1,18 @@
 {
-  "Todos": [],
-  "Doing": [],
-  "Done": []
-  
+  "Todos": [
+    "BrazilStatesExcel.py",
+    "Clicker.py",
+    "ExcelOrdenator.py",
+    "FolderStructurizer.py",
+    "GeoJsonReader.py",
+    "MacroManager.py",
+    "WebDriver.py"
+  ],
+  "Automações": [
+    "Clicker.py",
+    "ExcelOrdenator.py"
+  ],
+  "V0": [
+    "FolderStructurizer.py"
+  ]
 }
