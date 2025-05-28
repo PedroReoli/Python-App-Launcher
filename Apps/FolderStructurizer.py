@@ -1,4 +1,3 @@
-# Aplicação que mostra todos os arquivos e pastas de um diretório em formato markdown, html ou json.
 import os
 import tkinter as tk
 from tkinter import filedialog, ttk, scrolledtext, messagebox, font
@@ -7,9 +6,7 @@ from datetime import datetime
 import json
 import webbrowser
 import threading
-import re
-import shutil
-from functools import partial
+import tempfile
 import locale
 
 # Configurar localização para português
@@ -19,13 +16,13 @@ except:
     try:
         locale.setlocale(locale.LC_ALL, 'Portuguese_Brazil.1252')
     except:
-        pass  # Fallback para o locale padrão se não encontrar português
+        pass
 
 class VisualizadorDiretorios:
     def __init__(self, root):
         self.root = root
         self.root.title("Visualizador de Estrutura de Diretórios")
-        self.root.geometry("1100x750")
+        self.root.geometry("900x650")
         
         # Configurações iniciais
         self.configurar_variaveis()
@@ -67,7 +64,6 @@ class VisualizadorDiretorios:
         
     def configurar_tema(self):
         """Configurar cores e estilos do tema"""
-        # Tema claro (padrão)
         self.temas = {
             "claro": {
                 "bg_principal": "#f8f9fa",
@@ -75,19 +71,13 @@ class VisualizadorDiretorios:
                 "texto_principal": "#212529",
                 "texto_secundario": "#6c757d",
                 "cor_destaque": "#0d6efd",
-                "cor_destaque_hover": "#0b5ed7",
-                "cor_borda": "#dee2e6",
                 "bg_entrada": "#ffffff",
                 "bg_saida": "#f8f9fa",
                 "bg_botao_primario": "#0d6efd",
                 "texto_botao_primario": "#ffffff",
                 "bg_botao_secundario": "#e9ecef",
                 "texto_botao_secundario": "#212529",
-                "bg_status": "#f8f9fa",
-                "sucesso": "#198754",
-                "alerta": "#ffc107",
-                "erro": "#dc3545",
-                "info": "#0dcaf0"
+                "bg_status": "#f8f9fa"
             },
             "escuro": {
                 "bg_principal": "#212529",
@@ -95,27 +85,19 @@ class VisualizadorDiretorios:
                 "texto_principal": "#f8f9fa",
                 "texto_secundario": "#adb5bd",
                 "cor_destaque": "#0d6efd",
-                "cor_destaque_hover": "#0b5ed7",
-                "cor_borda": "#495057",
                 "bg_entrada": "#2b3035",
                 "bg_saida": "#2b3035",
                 "bg_botao_primario": "#0d6efd",
                 "texto_botao_primario": "#ffffff",
                 "bg_botao_secundario": "#495057",
                 "texto_botao_secundario": "#f8f9fa",
-                "bg_status": "#343a40",
-                "sucesso": "#20c997",
-                "alerta": "#ffc107",
-                "erro": "#dc3545",
-                "info": "#0dcaf0"
+                "bg_status": "#343a40"
             }
         }
         
-        # Definir tema inicial
         self.tema_atual = "claro"
         self.cores = self.temas[self.tema_atual]
         
-        # Configurar estilo ttk
         self.estilo = ttk.Style()
         self.estilo.theme_use("clam")
         self.aplicar_tema()
@@ -124,7 +106,6 @@ class VisualizadorDiretorios:
         """Aplicar o tema atual aos widgets"""
         self.cores = self.temas[self.tema_atual]
         
-        # Configurar estilos ttk
         self.estilo.configure("TFrame", background=self.cores["bg_principal"])
         self.estilo.configure("Card.TFrame", background=self.cores["bg_cartao"])
         
@@ -134,9 +115,6 @@ class VisualizadorDiretorios:
         self.estilo.configure("Card.TLabel", 
                              background=self.cores["bg_cartao"],
                              foreground=self.cores["texto_principal"])
-        self.estilo.configure("Secondary.TLabel", 
-                             background=self.cores["bg_principal"],
-                             foreground=self.cores["texto_secundario"])
         
         self.estilo.configure("TButton", 
                              background=self.cores["bg_botao_secundario"],
@@ -157,14 +135,11 @@ class VisualizadorDiretorios:
                              fieldbackground=self.cores["bg_entrada"],
                              foreground=self.cores["texto_principal"])
         
-        # Atualizar cores da janela principal
         self.root.configure(background=self.cores["bg_principal"])
         
-        # Atualizar widgets existentes se já foram criados
         if hasattr(self, 'frame_principal'):
             self.frame_principal.configure(background=self.cores["bg_principal"])
             
-            # Atualizar área de saída
             if hasattr(self, 'area_saida'):
                 self.area_saida.configure(
                     background=self.cores["bg_saida"],
@@ -172,7 +147,6 @@ class VisualizadorDiretorios:
                     insertbackground=self.cores["texto_principal"]
                 )
                 
-            # Atualizar barra de status
             if hasattr(self, 'barra_status'):
                 self.barra_status.configure(background=self.cores["bg_status"])
                 
@@ -196,399 +170,280 @@ class VisualizadorDiretorios:
         
     def criar_widgets(self):
         """Criar todos os widgets da interface"""
-        # Frame principal
-        self.frame_principal = ttk.Frame(self.root, style="TFrame", padding=20)
+        self.frame_principal = ttk.Frame(self.root, style="TFrame", padding=10)
         self.frame_principal.pack(fill=tk.BOTH, expand=True)
         
-        # Cabeçalho
+        self.frame_principal.columnconfigure(0, weight=1)
+        self.frame_principal.rowconfigure(3, weight=1)
+        
         self.criar_cabecalho()
-        
-        # Seção de seleção de diretório
-        self.criar_secao_diretorio()
-        
-        # Seção de opções
-        self.criar_secao_opcoes()
-        
-        # Seção de saída
+        self.criar_painel_controle()
         self.criar_secao_saida()
-        
-        # Barra de status
         self.criar_barra_status()
         
     def criar_cabecalho(self):
-        """Criar a seção de cabeçalho"""
+        """Criar a seção de cabeçalho compacta"""
         frame_cabecalho = ttk.Frame(self.frame_principal, style="TFrame")
-        frame_cabecalho.pack(fill=tk.X, pady=(0, 20))
+        frame_cabecalho.grid(row=0, column=0, sticky="ew", pady=(0, 5))
         
-        # Título e subtítulo
+        frame_cabecalho.columnconfigure(0, weight=1)
+        frame_cabecalho.columnconfigure(1, weight=0)
+        
+        frame_titulo = ttk.Frame(frame_cabecalho, style="TFrame")
+        frame_titulo.grid(row=0, column=0, sticky="w")
+        
         titulo = ttk.Label(
-            frame_cabecalho, 
+            frame_titulo, 
             text="Visualizador de Estrutura de Diretórios",
-            font=("Segoe UI", 18, "bold"),
+            font=("Segoe UI", 14, "bold"),
             style="TLabel"
         )
         titulo.pack(anchor=tk.W)
         
-        subtitulo = ttk.Label(
-            frame_cabecalho, 
-            text="Gere representações visuais da estrutura de seus diretórios em formato Markdown",
-            font=("Segoe UI", 11),
-            style="Secondary.TLabel"
-        )
-        subtitulo.pack(anchor=tk.W, pady=(5, 0))
-        
-        # Botão de tema no canto direito
-        frame_tema = ttk.Frame(frame_cabecalho, style="TFrame")
-        frame_tema.pack(anchor=tk.E, side=tk.RIGHT)
-        
         self.botao_tema = ttk.Checkbutton(
-            frame_tema,
+            frame_cabecalho,
             text="Tema Escuro",
             variable=self.tema_escuro,
             command=self.alternar_tema,
             style="TCheckbutton"
         )
-        self.botao_tema.pack(side=tk.RIGHT)
+        self.botao_tema.grid(row=0, column=1, sticky="e")
         
-    def criar_secao_diretorio(self):
-        """Criar a seção de seleção de diretório"""
-        cartao_diretorio = ttk.Frame(
-            self.frame_principal, 
-            style="Card.TFrame", 
-            padding=20
-        )
-        cartao_diretorio.pack(fill=tk.X, pady=(0, 20))
-        cartao_diretorio.configure(borderwidth=1, relief="solid")
+    def criar_painel_controle(self):
+        """Criar painel de controle compacto"""
+        self.notebook_controle = ttk.Notebook(self.frame_principal)
+        self.notebook_controle.grid(row=1, column=0, sticky="ew", pady=(0, 5))
         
-        # Título da seção
-        titulo_diretorio = ttk.Label(
-            cartao_diretorio, 
-            text="Selecionar Diretório",
-            font=("Segoe UI", 14, "bold"),
-            style="Card.TLabel"
-        )
-        titulo_diretorio.pack(anchor=tk.W, pady=(0, 15))
+        self.aba_diretorio = ttk.Frame(self.notebook_controle, style="Card.TFrame", padding=8)
+        self.notebook_controle.add(self.aba_diretorio, text="Diretório")
+        self.configurar_aba_diretorio()
         
-        # Frame para o botão e entrada
-        frame_selecao = ttk.Frame(cartao_diretorio, style="Card.TFrame")
-        frame_selecao.pack(fill=tk.X)
+        self.aba_opcoes = ttk.Frame(self.notebook_controle, style="Card.TFrame", padding=8)
+        self.notebook_controle.add(self.aba_opcoes, text="Opções")
+        self.configurar_aba_opcoes()
         
-        # Botão grande e destacado
+        self.aba_filtros = ttk.Frame(self.notebook_controle, style="Card.TFrame", padding=8)
+        self.notebook_controle.add(self.aba_filtros, text="Filtros")
+        self.configurar_aba_filtros()
+        
+        self.criar_barra_acoes()
+        
+    def configurar_aba_diretorio(self):
+        """Configurar aba de seleção de diretório"""
+        self.aba_diretorio.columnconfigure(1, weight=1)
+        
         botao_selecionar = ttk.Button(
-            frame_selecao,
+            self.aba_diretorio,
             text="Escolher Pasta",
             command=self.selecionar_diretorio,
             style="Primary.TButton",
-            width=20
+            width=15
         )
-        botao_selecionar.pack(side=tk.LEFT, padx=(0, 10))
+        botao_selecionar.grid(row=0, column=0, padx=(0, 5))
         
-        # Campo de entrada para o caminho
         self.entrada_diretorio = ttk.Entry(
-            frame_selecao,
-            font=("Segoe UI", 10),
-            width=60
+            self.aba_diretorio,
+            font=("Segoe UI", 9)
         )
-        self.entrada_diretorio.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.entrada_diretorio.grid(row=0, column=1, sticky="ew")
         
-        # Histórico de diretórios
-        frame_historico = ttk.Frame(cartao_diretorio, style="Card.TFrame")
-        frame_historico.pack(fill=tk.X, pady=(10, 0))
-        
-        label_historico = ttk.Label(
-            frame_historico,
+        ttk.Label(
+            self.aba_diretorio,
             text="Histórico:",
             style="Card.TLabel"
-        )
-        label_historico.pack(side=tk.LEFT, padx=(0, 10))
+        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
         
         self.combo_historico = ttk.Combobox(
-            frame_historico,
+            self.aba_diretorio,
             font=("Segoe UI", 9),
-            state="readonly",
-            width=50
+            state="readonly"
         )
-        self.combo_historico.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.combo_historico.grid(row=1, column=1, sticky="ew", pady=(5, 0))
         self.combo_historico.bind("<<ComboboxSelected>>", self.selecionar_do_historico)
         
-    def criar_secao_opcoes(self):
-        """Criar a seção de opções"""
-        cartao_opcoes = ttk.Frame(
-            self.frame_principal, 
-            style="Card.TFrame", 
-            padding=20
-        )
-        cartao_opcoes.pack(fill=tk.X, pady=(0, 20))
-        cartao_opcoes.configure(borderwidth=1, relief="solid")
+    def configurar_aba_opcoes(self):
+        """Configurar aba de opções básicas"""
+        self.aba_opcoes.columnconfigure(0, weight=1)
+        self.aba_opcoes.columnconfigure(1, weight=1)
         
-        # Título da seção
-        titulo_opcoes = ttk.Label(
-            cartao_opcoes, 
-            text="Opções de Visualização",
-            font=("Segoe UI", 14, "bold"),
-            style="Card.TLabel"
-        )
-        titulo_opcoes.pack(anchor=tk.W, pady=(0, 15))
-        
-        # Criar notebook para organizar as opções em abas
-        notebook = ttk.Notebook(cartao_opcoes)
-        notebook.pack(fill=tk.X, pady=(0, 15))
-        
-        # Aba de opções básicas
-        aba_basicas = ttk.Frame(notebook, style="Card.TFrame", padding=10)
-        notebook.add(aba_basicas, text="Opções Básicas")
-        
-        # Aba de filtros
-        aba_filtros = ttk.Frame(notebook, style="Card.TFrame", padding=10)
-        notebook.add(aba_filtros, text="Filtros")
-        
-        # Aba de formatação
-        aba_formatacao = ttk.Frame(notebook, style="Card.TFrame", padding=10)
-        notebook.add(aba_formatacao, text="Formatação")
-        
-        # Configurar opções básicas
-        self.configurar_opcoes_basicas(aba_basicas)
-        
-        # Configurar filtros
-        self.configurar_opcoes_filtros(aba_filtros)
-        
-        # Configurar formatação
-        self.configurar_opcoes_formatacao(aba_formatacao)
-        
-        # Botão de gerar visualização
-        botao_gerar = ttk.Button(
-            cartao_opcoes,
-            text="Gerar Visualização",
-            command=self.gerar_visualizacao,
-            style="Primary.TButton"
-        )
-        botao_gerar.pack(pady=(0, 5))
-        
-        # Dica sobre atalhos
-        dica_atalho = ttk.Label(
-            cartao_opcoes,
-            text="Dica: Pressione F5 para gerar a visualização rapidamente",
-            font=("Segoe UI", 9, "italic"),
-            style="Card.TLabel",
-            foreground=self.cores["texto_secundario"]
-        )
-        dica_atalho.pack()
-        
-    def configurar_opcoes_basicas(self, frame):
-        """Configurar as opções básicas"""
-        # Grid para organizar as opções
-        frame.columnconfigure(0, weight=1)
-        frame.columnconfigure(1, weight=1)
-        
-        # Opção de profundidade máxima
-        frame_profundidade = ttk.Frame(frame, style="Card.TFrame")
-        frame_profundidade.grid(row=0, column=0, sticky=tk.W, pady=5)
-        
-        label_profundidade = ttk.Label(
-            frame_profundidade,
+        ttk.Label(
+            self.aba_opcoes,
             text="Profundidade Máxima:",
             style="Card.TLabel"
-        )
-        label_profundidade.pack(side=tk.LEFT, padx=(0, 5))
+        ).grid(row=0, column=0, sticky="w")
+        
+        frame_profundidade = ttk.Frame(self.aba_opcoes, style="Card.TFrame")
+        frame_profundidade.grid(row=0, column=1, sticky="w")
         
         entrada_profundidade = ttk.Entry(
             frame_profundidade,
             width=5,
             textvariable=self.profundidade_maxima,
-            font=("Segoe UI", 10)
+            font=("Segoe UI", 9)
         )
         entrada_profundidade.pack(side=tk.LEFT)
         
-        dica_profundidade = ttk.Label(
+        ttk.Label(
             frame_profundidade,
             text="(0 = ilimitado)",
-            style="Card.TLabel",
-            foreground=self.cores["texto_secundario"]
-        )
-        dica_profundidade.pack(side=tk.LEFT, padx=(5, 0))
-        
-        # Opção de mostrar arquivos ocultos
-        check_ocultos = ttk.Checkbutton(
-            frame,
-            text="Incluir Arquivos Ocultos",
-            variable=self.incluir_ocultos,
-            style="TCheckbutton"
-        )
-        check_ocultos.grid(row=0, column=1, sticky=tk.W, pady=5)
-        
-        # Opção de mostrar tamanho dos arquivos
-        check_tamanho = ttk.Checkbutton(
-            frame,
-            text="Mostrar Tamanho dos Arquivos",
-            variable=self.mostrar_tamanho,
-            style="TCheckbutton"
-        )
-        check_tamanho.grid(row=1, column=0, sticky=tk.W, pady=5)
-        
-    def configurar_opcoes_filtros(self, frame):
-        """Configurar as opções de filtros"""
-        # Pastas a ignorar
-        frame_ignorar = ttk.Frame(frame, style="Card.TFrame")
-        frame_ignorar.pack(fill=tk.X, pady=5)
-        
-        label_ignorar = ttk.Label(
-            frame_ignorar,
-            text="Pastas a Ignorar (separadas por vírgula):",
             style="Card.TLabel"
-        )
-        label_ignorar.pack(anchor=tk.W, pady=(0, 5))
+        ).pack(side=tk.LEFT, padx=(5, 0))
         
-        entrada_ignorar = ttk.Entry(
-            frame_ignorar,
-            textvariable=self.ignorar_padrao,
-            font=("Segoe UI", 10)
-        )
-        entrada_ignorar.pack(fill=tk.X)
-        
-        # Filtro de extensões
-        frame_extensoes = ttk.Frame(frame, style="Card.TFrame")
-        frame_extensoes.pack(fill=tk.X, pady=(10, 5))
-        
-        check_extensoes = ttk.Checkbutton(
-            frame_extensoes,
-            text="Filtrar por Extensões",
-            variable=self.filtrar_extensoes,
-            style="TCheckbutton"
-        )
-        check_extensoes.pack(anchor=tk.W)
-        
-        label_extensoes = ttk.Label(
-            frame_extensoes,
-            text="Extensões a Incluir (ex: py,txt,md):",
-            style="Card.TLabel"
-        )
-        label_extensoes.pack(anchor=tk.W, pady=(5, 5))
-        
-        entrada_extensoes = ttk.Entry(
-            frame_extensoes,
-            textvariable=self.extensoes_filtro,
-            font=("Segoe UI", 10)
-        )
-        entrada_extensoes.pack(fill=tk.X)
-        
-    def configurar_opcoes_formatacao(self, frame):
-        """Configurar as opções de formatação"""
-        # Formato de saída
-        frame_formato = ttk.Frame(frame, style="Card.TFrame")
-        frame_formato.pack(fill=tk.X, pady=5)
-        
-        label_formato = ttk.Label(
-            frame_formato,
+        ttk.Label(
+            self.aba_opcoes,
             text="Formato de Saída:",
             style="Card.TLabel"
-        )
-        label_formato.pack(anchor=tk.W, pady=(0, 5))
+        ).grid(row=1, column=0, sticky="w", pady=(5, 0))
         
-        # Opções de formato
-        frame_opcoes_formato = ttk.Frame(frame_formato, style="Card.TFrame")
-        frame_opcoes_formato.pack(fill=tk.X)
+        frame_formato = ttk.Frame(self.aba_opcoes, style="Card.TFrame")
+        frame_formato.grid(row=1, column=1, sticky="w", pady=(5, 0))
         
-        radio_markdown = ttk.Radiobutton(
-            frame_opcoes_formato,
+        ttk.Radiobutton(
+            frame_formato,
             text="Markdown",
             variable=self.formato_saida,
             value="markdown",
             style="TCheckbutton"
-        )
-        radio_markdown.pack(side=tk.LEFT, padx=(0, 10))
+        ).pack(side=tk.LEFT, padx=(0, 5))
         
-        radio_html = ttk.Radiobutton(
-            frame_opcoes_formato,
+        ttk.Radiobutton(
+            frame_formato,
             text="HTML",
             variable=self.formato_saida,
             value="html",
             style="TCheckbutton"
-        )
-        radio_html.pack(side=tk.LEFT, padx=(0, 10))
+        ).pack(side=tk.LEFT, padx=(0, 5))
         
-        radio_json = ttk.Radiobutton(
-            frame_opcoes_formato,
+        ttk.Radiobutton(
+            frame_formato,
             text="JSON",
             variable=self.formato_saida,
             value="json",
             style="TCheckbutton"
-        )
-        radio_json.pack(side=tk.LEFT)
+        ).pack(side=tk.LEFT)
         
-    def criar_secao_saida(self):
-        """Criar a seção de saída"""
-        cartao_saida = ttk.Frame(
-            self.frame_principal, 
-            style="Card.TFrame", 
-            padding=20
-        )
-        cartao_saida.pack(fill=tk.BOTH, expand=True)
-        cartao_saida.configure(borderwidth=1, relief="solid")
+        ttk.Checkbutton(
+            self.aba_opcoes,
+            text="Incluir Arquivos Ocultos",
+            variable=self.incluir_ocultos,
+            style="TCheckbutton"
+        ).grid(row=2, column=0, sticky="w", pady=(5, 0))
         
-        # Cabeçalho da seção
-        frame_cabecalho_saida = ttk.Frame(cartao_saida, style="Card.TFrame")
-        frame_cabecalho_saida.pack(fill=tk.X, pady=(0, 10))
+        ttk.Checkbutton(
+            self.aba_opcoes,
+            text="Mostrar Tamanho dos Arquivos",
+            variable=self.mostrar_tamanho,
+            style="TCheckbutton"
+        ).grid(row=2, column=1, sticky="w", pady=(5, 0))
         
-        titulo_saida = ttk.Label(
-            frame_cabecalho_saida,
-            text="Visualização",
-            font=("Segoe UI", 14, "bold"),
+    def configurar_aba_filtros(self):
+        """Configurar aba de filtros"""
+        self.aba_filtros.columnconfigure(0, weight=1)
+        
+        ttk.Label(
+            self.aba_filtros,
+            text="Pastas a Ignorar (separadas por vírgula):",
             style="Card.TLabel"
-        )
-        titulo_saida.pack(side=tk.LEFT)
+        ).grid(row=0, column=0, sticky="w")
         
-        # Botões de ação
-        frame_botoes_saida = ttk.Frame(frame_cabecalho_saida, style="Card.TFrame")
-        frame_botoes_saida.pack(side=tk.RIGHT)
+        entrada_ignorar = ttk.Entry(
+            self.aba_filtros,
+            textvariable=self.ignorar_padrao,
+            font=("Segoe UI", 9)
+        )
+        entrada_ignorar.grid(row=1, column=0, sticky="ew")
+        
+        ttk.Checkbutton(
+            self.aba_filtros,
+            text="Filtrar por Extensões",
+            variable=self.filtrar_extensoes,
+            style="TCheckbutton"
+        ).grid(row=2, column=0, sticky="w", pady=(5, 0))
+        
+        ttk.Label(
+            self.aba_filtros,
+            text="Extensões a Incluir (ex: py,txt,md):",
+            style="Card.TLabel"
+        ).grid(row=3, column=0, sticky="w")
+        
+        entrada_extensoes = ttk.Entry(
+            self.aba_filtros,
+            textvariable=self.extensoes_filtro,
+            font=("Segoe UI", 9)
+        )
+        entrada_extensoes.grid(row=4, column=0, sticky="ew")
+        
+    def criar_barra_acoes(self):
+        """Criar barra de botões de ação"""
+        frame_acoes = ttk.Frame(self.frame_principal, style="TFrame")
+        frame_acoes.grid(row=2, column=0, sticky="ew", pady=(0, 5))
+        
+        botao_gerar = ttk.Button(
+            frame_acoes,
+            text="Gerar Visualização (F5)",
+            command=self.gerar_visualizacao,
+            style="Primary.TButton"
+        )
+        botao_gerar.pack(side=tk.LEFT)
         
         botao_salvar = ttk.Button(
-            frame_botoes_saida,
+            frame_acoes,
             text="Salvar",
             command=self.salvar_arquivo,
             style="TButton"
         )
-        botao_salvar.pack(side=tk.LEFT, padx=(0, 5))
+        botao_salvar.pack(side=tk.RIGHT)
+        
+        botao_visualizar = ttk.Button(
+            frame_acoes,
+            text="Visualizar",
+            command=self.visualizar_no_navegador,
+            style="TButton"
+        )
+        botao_visualizar.pack(side=tk.RIGHT, padx=5)
         
         botao_copiar = ttk.Button(
-            frame_botoes_saida,
+            frame_acoes,
             text="Copiar",
             command=self.copiar_para_clipboard,
             style="TButton"
         )
-        botao_copiar.pack(side=tk.LEFT, padx=(0, 5))
+        botao_copiar.pack(side=tk.RIGHT)
         
-        botao_visualizar = ttk.Button(
-            frame_botoes_saida,
-            text="Visualizar no Navegador",
-            command=self.visualizar_no_navegador,
-            style="TButton"
-        )
-        botao_visualizar.pack(side=tk.LEFT)
+    def criar_secao_saida(self):
+        """Criar a seção de saída"""
+        frame_saida = ttk.Frame(self.frame_principal, style="Card.TFrame")
+        frame_saida.grid(row=3, column=0, sticky="nsew")
+        frame_saida.columnconfigure(0, weight=1)
+        frame_saida.rowconfigure(1, weight=1)
         
-        # Área de texto para a saída
-        fonte_saida = font.Font(family="Consolas", size=10)
+        ttk.Label(
+            frame_saida,
+            text="Visualização",
+            font=("Segoe UI", 10, "bold"),
+            style="Card.TLabel"
+        ).grid(row=0, column=0, sticky="w", padx=5, pady=2)
+        
+        fonte_saida = font.Font(family="Consolas", size=9)
         
         self.area_saida = scrolledtext.ScrolledText(
-            cartao_saida,
+            frame_saida,
             wrap=tk.NONE,
             font=fonte_saida,
             background=self.cores["bg_saida"],
             foreground=self.cores["texto_principal"],
             borderwidth=1,
-            relief="solid",
-            padx=10,
-            pady=10
+            relief="solid"
         )
-        self.area_saida.pack(fill=tk.BOTH, expand=True)
+        self.area_saida.grid(row=1, column=0, sticky="nsew")
         
-        # Barra de rolagem horizontal
         barra_rolagem_h = ttk.Scrollbar(
-            cartao_saida,
+            frame_saida,
             orient=tk.HORIZONTAL,
             command=self.area_saida.xview
         )
+        barra_rolagem_h.grid(row=2, column=0, sticky="ew")
         self.area_saida.configure(xscrollcommand=barra_rolagem_h.set)
-        barra_rolagem_h.pack(fill=tk.X)
         
     def criar_barra_status(self):
         """Criar a barra de status"""
@@ -599,11 +454,10 @@ class VisualizadorDiretorios:
             textvariable=self.var_status,
             relief=tk.SUNKEN,
             anchor=tk.W,
-            padding=(10, 5)
+            padding=(5, 2)
         )
         self.barra_status.pack(side=tk.BOTTOM, fill=tk.X)
         
-        # Definir status inicial
         self.var_status.set("Pronto. Clique em 'Escolher Pasta' para começar.")
         
     def alternar_tema(self):
@@ -621,10 +475,7 @@ class VisualizadorDiretorios:
             self.diretorio_atual = diretorio
             self.var_status.set(f"Diretório selecionado: {diretorio}")
             
-            # Adicionar ao histórico
             self.adicionar_ao_historico(diretorio)
-            
-            # Gerar visualização automaticamente
             self.gerar_visualizacao()
             
     def selecionar_do_historico(self, event):
@@ -636,26 +487,19 @@ class VisualizadorDiretorios:
             self.diretorio_atual = selecionado
             self.var_status.set(f"Diretório selecionado: {selecionado}")
             
-            # Gerar visualização automaticamente
             self.gerar_visualizacao()
             
     def adicionar_ao_historico(self, diretorio):
         """Adicionar diretório ao histórico"""
-        # Remover se já existir
         if diretorio in self.historico_diretorios:
             self.historico_diretorios.remove(diretorio)
             
-        # Adicionar ao início
         self.historico_diretorios.insert(0, diretorio)
         
-        # Limitar tamanho
         if len(self.historico_diretorios) > self.max_historico:
             self.historico_diretorios = self.historico_diretorios[:self.max_historico]
             
-        # Atualizar combobox
         self.combo_historico['values'] = self.historico_diretorios
-        
-        # Salvar configurações
         self.salvar_configuracoes()
         
     def gerar_visualizacao(self):
@@ -677,7 +521,6 @@ class VisualizadorDiretorios:
             messagebox.showerror("Erro", "A profundidade máxima deve ser um número não negativo")
             return
             
-        # Evitar múltiplas gerações simultâneas
         if self.gerando_visualizacao:
             return
             
@@ -685,19 +528,15 @@ class VisualizadorDiretorios:
         self.var_status.set("Gerando visualização...")
         self.root.update_idletasks()
         
-        # Obter opções
         incluir_ocultos = self.incluir_ocultos.get()
         mostrar_tamanho = self.mostrar_tamanho.get()
         formato = self.formato_saida.get()
         
-        # Obter lista de pastas a ignorar
         pastas_ignorar = [p.strip() for p in self.ignorar_padrao.get().split(',') if p.strip()]
         
-        # Obter filtro de extensões
         filtrar_por_extensao = self.filtrar_extensoes.get()
         extensoes = [ext.strip().lower() for ext in self.extensoes_filtro.get().split(',') if ext.strip()]
         
-        # Iniciar thread para não bloquear a interface
         threading.Thread(
             target=self._gerar_visualizacao_thread,
             args=(diretorio, incluir_ocultos, mostrar_tamanho, profundidade_maxima, 
@@ -710,7 +549,6 @@ class VisualizadorDiretorios:
                                   extensoes, formato):
         """Thread para gerar a visualização sem bloquear a interface"""
         try:
-            # Gerar a visualização de acordo com o formato
             if formato == "markdown":
                 resultado = self.gerar_arvore_diretorio_markdown(
                     diretorio, incluir_ocultos, mostrar_tamanho, profundidade_maxima,
@@ -729,7 +567,6 @@ class VisualizadorDiretorios:
             else:
                 resultado = "Formato não suportado"
                 
-            # Atualizar a interface na thread principal
             self.root.after(0, self.atualizar_saida, resultado)
             
         except Exception as e:
@@ -758,15 +595,11 @@ class VisualizadorDiretorios:
                                        extensoes):
         """Gerar representação em Markdown da estrutura de diretórios"""
         caminho_diretorio = pathlib.Path(diretorio)
-        
-        # Obter o nome do diretório para o cabeçalho
         nome_dir = caminho_diretorio.name or caminho_diretorio.anchor
         
-        # Iniciar com o cabeçalho
         resultado = [f"# 📁 Estrutura do Diretório: {nome_dir}\n"]
         resultado.append(f"*Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}*\n")
         
-        # Adicionar estatísticas
         estatisticas = self.calcular_estatisticas(
             caminho_diretorio, incluir_ocultos, pastas_ignorar, 
             filtrar_por_extensao, extensoes
@@ -776,11 +609,9 @@ class VisualizadorDiretorios:
         resultado.append(f"- **Total de Arquivos:** {estatisticas['total_arquivos']}")
         resultado.append(f"- **Tamanho Total:** {self.formatar_tamanho(estatisticas['tamanho_total'])}\n")
         
-        # Adicionar o diretório raiz à árvore
         resultado.append(f"## Estrutura\n")
         resultado.append(f"📁 {nome_dir}/")
         
-        # Gerar a árvore recursivamente
         self._gerar_arvore_markdown(
             caminho_diretorio, "", resultado, incluir_ocultos, mostrar_tamanho,
             profundidade_maxima, pastas_ignorar, filtrar_por_extensao, extensoes, 0
@@ -795,7 +626,6 @@ class VisualizadorDiretorios:
         if profundidade_maxima > 0 and profundidade_atual >= profundidade_maxima:
             return
             
-        # Obter todos os itens no diretório
         try:
             itens = list(caminho.iterdir())
         except PermissionError:
@@ -805,20 +635,16 @@ class VisualizadorDiretorios:
             resultado.append(f"{prefixo}├── ⚠️ Erro: {str(e)}")
             return
             
-        # Filtrar itens
         itens_filtrados = []
         for item in itens:
-            # Verificar se é um diretório a ser ignorado
             if item.is_dir() and item.name in pastas_ignorar:
                 continue
                 
-            # Verificar se é um arquivo oculto
             if not incluir_ocultos and item.name.startswith('.'):
                 continue
                 
-            # Verificar filtro de extensão para arquivos
             if filtrar_por_extensao and not item.is_dir():
-                if not extensoes:  # Se a lista estiver vazia, não mostrar nenhum arquivo
+                if not extensoes:
                     continue
                     
                 ext = item.suffix.lower().lstrip('.')
@@ -827,20 +653,15 @@ class VisualizadorDiretorios:
                     
             itens_filtrados.append(item)
             
-        # Ordenar itens: diretórios primeiro, depois arquivos, ambos em ordem alfabética
         itens_filtrados.sort(key=lambda x: (not x.is_dir(), x.name.lower()))
         
-        # Processar cada item
         for i, item in enumerate(itens_filtrados):
             eh_ultimo = i == len(itens_filtrados) - 1
             
-            # Escolher o prefixo apropriado para o item atual
             prefixo_item = "└── " if eh_ultimo else "├── "
             
-            # Escolher o ícone apropriado
             icone = "📁" if item.is_dir() else self.obter_icone_arquivo(item)
             
-            # Adicionar informação de tamanho se necessário
             info_tamanho = ""
             if mostrar_tamanho and not item.is_dir():
                 try:
@@ -849,12 +670,9 @@ class VisualizadorDiretorios:
                 except:
                     info_tamanho = " (tamanho desconhecido)"
                     
-            # Adicionar o item ao resultado
             resultado.append(f"{prefixo}{prefixo_item}{icone} {item.name}{info_tamanho}")
             
-            # Se for um diretório, processar seu conteúdo
             if item.is_dir():
-                # Escolher o prefixo apropriado para o próximo nível
                 proximo_prefixo = prefixo + ("    " if eh_ultimo else "│   ")
                 self._gerar_arvore_markdown(
                     item, proximo_prefixo, resultado, incluir_ocultos, mostrar_tamanho,
@@ -869,13 +687,11 @@ class VisualizadorDiretorios:
         caminho_diretorio = pathlib.Path(diretorio)
         nome_dir = caminho_diretorio.name or caminho_diretorio.anchor
         
-        # Calcular estatísticas
         estatisticas = self.calcular_estatisticas(
             caminho_diretorio, incluir_ocultos, pastas_ignorar, 
             filtrar_por_extensao, extensoes
         )
         
-        # Iniciar HTML
         html = [
             "<!DOCTYPE html>",
             "<html lang='pt-BR'>",
@@ -909,22 +725,17 @@ class VisualizadorDiretorios:
             "    <div class='tree-container'>"
         ]
         
-        # Adicionar o diretório raiz
         html.append(f"        <div class='tree-item'><span class='folder'>📁 {nome_dir}/</span></div>")
         
-        # Lista para armazenar os itens da árvore
         itens_arvore = []
         
-        # Gerar a árvore recursivamente
         self._gerar_arvore_html(
             caminho_diretorio, "", itens_arvore, incluir_ocultos, mostrar_tamanho,
             profundidade_maxima, pastas_ignorar, filtrar_por_extensao, extensoes, 0
         )
         
-        # Adicionar itens da árvore ao HTML
         html.extend(itens_arvore)
         
-        # Finalizar HTML
         html.extend([
             "    </div>",
             "</body>",
@@ -940,7 +751,6 @@ class VisualizadorDiretorios:
         if profundidade_maxima > 0 and profundidade_atual >= profundidade_maxima:
             return
             
-        # Obter todos os itens no diretório
         try:
             itens = list(caminho.iterdir())
         except PermissionError:
@@ -950,20 +760,16 @@ class VisualizadorDiretorios:
             resultado.append(f"        <div class='tree-item'>{prefixo}├── <span class='error'>⚠️ Erro: {str(e)}</span></div>")
             return
             
-        # Filtrar itens
         itens_filtrados = []
         for item in itens:
-            # Verificar se é um diretório a ser ignorado
             if item.is_dir() and item.name in pastas_ignorar:
                 continue
                 
-            # Verificar se é um arquivo oculto
             if not incluir_ocultos and item.name.startswith('.'):
                 continue
                 
-            # Verificar filtro de extensão para arquivos
             if filtrar_por_extensao and not item.is_dir():
-                if not extensoes:  # Se a lista estiver vazia, não mostrar nenhum arquivo
+                if not extensoes:
                     continue
                     
                 ext = item.suffix.lower().lstrip('.')
@@ -972,20 +778,15 @@ class VisualizadorDiretorios:
                     
             itens_filtrados.append(item)
             
-        # Ordenar itens: diretórios primeiro, depois arquivos, ambos em ordem alfabética
         itens_filtrados.sort(key=lambda x: (not x.is_dir(), x.name.lower()))
         
-        # Processar cada item
         for i, item in enumerate(itens_filtrados):
             eh_ultimo = i == len(itens_filtrados) - 1
             
-            # Escolher o prefixo apropriado para o item atual
             prefixo_item = "└── " if eh_ultimo else "├── "
             
-            # Escolher o ícone apropriado
             icone = "📁" if item.is_dir() else self.obter_icone_arquivo(item)
             
-            # Adicionar informação de tamanho se necessário
             info_tamanho = ""
             if mostrar_tamanho and not item.is_dir():
                 try:
@@ -994,13 +795,10 @@ class VisualizadorDiretorios:
                 except:
                     info_tamanho = " <span class='size'>(tamanho desconhecido)</span>"
                     
-            # Adicionar o item ao resultado
             classe = "folder" if item.is_dir() else "file"
             resultado.append(f"        <div class='tree-item'>{prefixo}{prefixo_item}<span class='{classe}'>{icone} {item.name}</span>{info_tamanho}</div>")
             
-            # Se for um diretório, processar seu conteúdo
             if item.is_dir():
-                # Escolher o prefixo apropriado para o próximo nível
                 proximo_prefixo = prefixo + ("    " if eh_ultimo else "│   ")
                 self._gerar_arvore_html(
                     item, proximo_prefixo, resultado, incluir_ocultos, mostrar_tamanho,
@@ -1015,13 +813,11 @@ class VisualizadorDiretorios:
         caminho_diretorio = pathlib.Path(diretorio)
         nome_dir = caminho_diretorio.name or caminho_diretorio.anchor
         
-        # Calcular estatísticas
         estatisticas = self.calcular_estatisticas(
             caminho_diretorio, incluir_ocultos, pastas_ignorar, 
             filtrar_por_extensao, extensoes
         )
         
-        # Criar estrutura JSON
         estrutura = {
             "nome": nome_dir,
             "tipo": "diretorio",
@@ -1036,13 +832,11 @@ class VisualizadorDiretorios:
             "conteudo": []
         }
         
-        # Gerar a árvore recursivamente
         self._gerar_arvore_json(
             caminho_diretorio, estrutura["conteudo"], incluir_ocultos, mostrar_tamanho,
             profundidade_maxima, pastas_ignorar, filtrar_por_extensao, extensoes, 0
         )
         
-        # Converter para string JSON formatada
         return json.dumps(estrutura, indent=2, ensure_ascii=False)
         
     def _gerar_arvore_json(self, caminho, resultado, incluir_ocultos, mostrar_tamanho, 
@@ -1052,7 +846,6 @@ class VisualizadorDiretorios:
         if profundidade_maxima > 0 and profundidade_atual >= profundidade_maxima:
             return
             
-        # Obter todos os itens no diretório
         try:
             itens = list(caminho.iterdir())
         except PermissionError:
@@ -1070,20 +863,16 @@ class VisualizadorDiretorios:
             })
             return
             
-        # Filtrar itens
         itens_filtrados = []
         for item in itens:
-            # Verificar se é um diretório a ser ignorado
             if item.is_dir() and item.name in pastas_ignorar:
                 continue
                 
-            # Verificar se é um arquivo oculto
             if not incluir_ocultos and item.name.startswith('.'):
                 continue
                 
-            # Verificar filtro de extensão para arquivos
             if filtrar_por_extensao and not item.is_dir():
-                if not extensoes:  # Se a lista estiver vazia, não mostrar nenhum arquivo
+                if not extensoes:
                     continue
                     
                 ext = item.suffix.lower().lstrip('.')
@@ -1092,13 +881,10 @@ class VisualizadorDiretorios:
                     
             itens_filtrados.append(item)
             
-        # Ordenar itens: diretórios primeiro, depois arquivos, ambos em ordem alfabética
         itens_filtrados.sort(key=lambda x: (not x.is_dir(), x.name.lower()))
         
-        # Processar cada item
         for item in itens_filtrados:
             if item.is_dir():
-                # Criar objeto para o diretório
                 dir_obj = {
                     "nome": item.name,
                     "tipo": "diretorio",
@@ -1106,17 +892,14 @@ class VisualizadorDiretorios:
                     "conteudo": []
                 }
                 
-                # Adicionar ao resultado
                 resultado.append(dir_obj)
                 
-                # Processar conteúdo do diretório
                 self._gerar_arvore_json(
                     item, dir_obj["conteudo"], incluir_ocultos, mostrar_tamanho,
                     profundidade_maxima, pastas_ignorar, filtrar_por_extensao, extensoes,
                     profundidade_atual + 1
                 )
             else:
-                # Criar objeto para o arquivo
                 arquivo_obj = {
                     "nome": item.name,
                     "tipo": "arquivo",
@@ -1124,7 +907,6 @@ class VisualizadorDiretorios:
                     "extensao": item.suffix.lower().lstrip('.') if item.suffix else ""
                 }
                 
-                # Adicionar informação de tamanho se necessário
                 if mostrar_tamanho:
                     try:
                         tamanho = item.stat().st_size
@@ -1134,7 +916,6 @@ class VisualizadorDiretorios:
                         arquivo_obj["tamanho"] = -1
                         arquivo_obj["tamanho_formatado"] = "desconhecido"
                         
-                # Adicionar ao resultado
                 resultado.append(arquivo_obj)
                 
     def calcular_estatisticas(self, caminho, incluir_ocultos, pastas_ignorar, 
@@ -1145,7 +926,6 @@ class VisualizadorDiretorios:
         tamanho_total = 0
         
         for raiz, diretorios, arquivos in os.walk(caminho):
-            # Filtrar diretórios a ignorar
             diretorios_filtrados = []
             for d in diretorios:
                 if d in pastas_ignorar:
@@ -1154,29 +934,23 @@ class VisualizadorDiretorios:
                     continue
                 diretorios_filtrados.append(d)
                 
-            # Atualizar a lista de diretórios para não percorrer os ignorados
             diretorios[:] = diretorios_filtrados
             total_diretorios += len(diretorios_filtrados)
             
-            # Processar arquivos
             for arquivo in arquivos:
-                # Verificar se é um arquivo oculto
                 if not incluir_ocultos and arquivo.startswith('.'):
                     continue
                     
-                # Verificar filtro de extensão
                 if filtrar_por_extensao:
-                    if not extensoes:  # Se a lista estiver vazia, não contar nenhum arquivo
+                    if not extensoes:
                         continue
                         
                     ext = os.path.splitext(arquivo)[1].lower().lstrip('.')
                     if ext not in extensoes:
                         continue
                         
-                # Contar arquivo
                 total_arquivos += 1
                 
-                # Calcular tamanho
                 try:
                     caminho_arquivo = os.path.join(raiz, arquivo)
                     tamanho_total += os.path.getsize(caminho_arquivo)
@@ -1193,94 +967,31 @@ class VisualizadorDiretorios:
         """Obter ícone apropriado para o tipo de arquivo"""
         extensao = caminho.suffix.lower()
         
-        # Mapeamento de extensões para ícones
         icones = {
-            # Código
-            '.py': '🐍',
-            '.js': '📜',
-            '.ts': '📜',
-            '.html': '🌐',
-            '.css': '🎨',
-            '.java': '☕',
-            '.c': '🔧',
-            '.cpp': '🔧',
-            '.h': '📋',
-            '.php': '🐘',
-            '.rb': '💎',
-            '.go': '🔹',
-            '.rs': '🦀',
-            '.swift': '🔶',
-            '.kt': '🔷',
-            
-            # Documentos
-            '.txt': '📄',
-            '.md': '📝',
-            '.pdf': '📕',
-            '.doc': '📘',
-            '.docx': '📘',
-            '.xls': '📊',
-            '.xlsx': '📊',
-            '.ppt': '📊',
-            '.pptx': '📊',
-            
-            # Imagens
-            '.jpg': '🖼️',
-            '.jpeg': '🖼️',
-            '.png': '🖼️',
-            '.gif': '🖼️',
-            '.svg': '🖼️',
-            '.bmp': '🖼️',
-            '.tiff': '🖼️',
-            
-            # Áudio/Vídeo
-            '.mp3': '🎵',
-            '.wav': '🎵',
-            '.ogg': '🎵',
-            '.mp4': '🎬',
-            '.avi': '🎬',
-            '.mov': '🎬',
-            '.mkv': '🎬',
-            
-            # Compactados
-            '.zip': '📦',
-            '.rar': '📦',
-            '.tar': '📦',
-            '.gz': '📦',
-            '.7z': '📦',
-            
-            # Configuração
-            '.json': '⚙️',
-            '.xml': '⚙️',
-            '.yml': '⚙️',
-            '.yaml': '⚙️',
-            '.ini': '⚙️',
-            '.conf': '⚙️',
-            '.env': '⚙️',
-            
-            # Executáveis
-            '.exe': '⚡',
-            '.bat': '⚡',
-            '.sh': '⚡',
-            
-            # Outros
-            '.db': '🗃️',
-            '.sql': '🗃️',
-            '.log': '📋',
-            '.gitignore': '🔍',
-            '.dockerfile': '🐳',
+            '.py': '🐍', '.js': '📜', '.ts': '📜', '.html': '🌐', '.css': '🎨',
+            '.java': '☕', '.c': '🔧', '.cpp': '🔧', '.h': '📋', '.php': '🐘',
+            '.rb': '💎', '.go': '🔹', '.rs': '🦀', '.swift': '🔶', '.kt': '🔷',
+            '.txt': '📄', '.md': '📝', '.pdf': '📕', '.doc': '📘', '.docx': '📘',
+            '.xls': '📊', '.xlsx': '📊', '.ppt': '📊', '.pptx': '📊',
+            '.jpg': '🖼️', '.jpeg': '🖼️', '.png': '🖼️', '.gif': '🖼️', '.svg': '🖼️',
+            '.bmp': '🖼️', '.tiff': '🖼️', '.mp3': '🎵', '.wav': '🎵', '.ogg': '🎵',
+            '.mp4': '🎬', '.avi': '🎬', '.mov': '🎬', '.mkv': '🎬',
+            '.zip': '📦', '.rar': '📦', '.tar': '📦', '.gz': '📦', '.7z': '📦',
+            '.json': '⚙️', '.xml': '⚙️', '.yml': '⚙️', '.yaml': '⚙️',
+            '.ini': '⚙️', '.conf': '⚙️', '.env': '⚙️', '.exe': '⚡',
+            '.bat': '⚡', '.sh': '⚡', '.db': '🗃️', '.sql': '🗃️',
+            '.log': '📋', '.gitignore': '🔍', '.dockerfile': '🐳'
         }
         
-        return icones.get(extensao, '📄')  # Ícone padrão se não encontrar
+        return icones.get(extensao, '📄')
         
     def formatar_tamanho(self, tamanho_bytes):
         """Formatar tamanho em bytes para uma representação legível"""
         if tamanho_bytes < 0:
             return "desconhecido"
             
-        # Definir unidades
         unidades = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
         
-        # Converter para a unidade apropriada
         indice_unidade = 0
         tamanho = float(tamanho_bytes)
         
@@ -1288,7 +999,6 @@ class VisualizadorDiretorios:
             tamanho /= 1024
             indice_unidade += 1
             
-        # Formatar com 2 casas decimais se não for bytes
         if indice_unidade == 0:
             return f"{int(tamanho)} {unidades[indice_unidade]}"
         else:
@@ -1300,7 +1010,6 @@ class VisualizadorDiretorios:
             messagebox.showerror("Erro", "Não há conteúdo para salvar")
             return
             
-        # Determinar a extensão padrão com base no formato
         formato = self.formato_saida.get()
         extensoes = {
             "markdown": ".md",
@@ -1310,7 +1019,6 @@ class VisualizadorDiretorios:
         
         extensao_padrao = extensoes.get(formato, ".txt")
         
-        # Abrir diálogo para salvar
         caminho_arquivo = filedialog.asksaveasfilename(
             defaultextension=extensao_padrao,
             filetypes=[
@@ -1351,11 +1059,7 @@ class VisualizadorDiretorios:
             
         formato = self.formato_saida.get()
         
-        # Criar arquivo temporário
         try:
-            import tempfile
-            
-            # Determinar extensão
             extensoes = {
                 "markdown": ".md",
                 "html": ".html",
@@ -1364,12 +1068,10 @@ class VisualizadorDiretorios:
             
             extensao = extensoes.get(formato, ".txt")
             
-            # Criar arquivo temporário com a extensão correta
             with tempfile.NamedTemporaryFile(suffix=extensao, delete=False, mode='w', encoding='utf-8') as temp:
                 temp.write(self.ultima_saida)
                 caminho_temp = temp.name
                 
-            # Abrir no navegador
             webbrowser.open(f"file://{caminho_temp}")
             self.var_status.set("Visualização aberta no navegador")
             
@@ -1380,10 +1082,9 @@ class VisualizadorDiretorios:
         """Mostrar janela de ajuda"""
         janela_ajuda = tk.Toplevel(self.root)
         janela_ajuda.title("Ajuda - Visualizador de Estrutura de Diretórios")
-        janela_ajuda.geometry("600x500")
+        janela_ajuda.geometry("500x400")
         janela_ajuda.configure(background=self.cores["bg_principal"])
         
-        # Centralizar a janela
         janela_ajuda.update_idletasks()
         largura = janela_ajuda.winfo_width()
         altura = janela_ajuda.winfo_height()
@@ -1391,35 +1092,29 @@ class VisualizadorDiretorios:
         y = (janela_ajuda.winfo_screenheight() // 2) - (altura // 2)
         janela_ajuda.geometry(f'{largura}x{altura}+{x}+{y}')
         
-        # Conteúdo da ajuda
-        frame_ajuda = ttk.Frame(janela_ajuda, style="TFrame", padding=20)
+        frame_ajuda = ttk.Frame(janela_ajuda, style="TFrame", padding=10)
         frame_ajuda.pack(fill=tk.BOTH, expand=True)
         
         titulo = ttk.Label(
             frame_ajuda, 
-            text="Ajuda do Visualizador de Estrutura de Diretórios",
-            font=("Segoe UI", 14, "bold"),
+            text="Ajuda do Visualizador",
+            font=("Segoe UI", 12, "bold"),
             style="TLabel"
         )
-        titulo.pack(anchor=tk.W, pady=(0, 15))
+        titulo.pack(anchor=tk.W, pady=(0, 10))
         
-        # Área de texto para o conteúdo da ajuda
         texto_ajuda = scrolledtext.ScrolledText(
             frame_ajuda,
             wrap=tk.WORD,
-            font=("Segoe UI", 10),
+            font=("Segoe UI", 9),
             background=self.cores["bg_cartao"],
-            foreground=self.cores["texto_principal"],
-            padx=10,
-            pady=10
+            foreground=self.cores["texto_principal"]
         )
         texto_ajuda.pack(fill=tk.BOTH, expand=True)
         
-        # Conteúdo da ajuda
-        conteudo_ajuda = """
-# Visualizador de Estrutura de Diretórios
+        conteudo_ajuda = """# Visualizador de Estrutura de Diretórios
 
-Este aplicativo permite gerar representações visuais da estrutura de diretórios em diferentes formatos.
+Este aplicativo permite gerar representações visuais da estrutura de diretórios.
 
 ## Funcionalidades Principais
 
@@ -1431,8 +1126,6 @@ Este aplicativo permite gerar representações visuais da estrutura de diretóri
    - **Profundidade Máxima**: Limita a profundidade da árvore (0 = ilimitado)
    - **Incluir Arquivos Ocultos**: Mostra arquivos que começam com ponto (.)
    - **Mostrar Tamanho**: Exibe o tamanho dos arquivos
-   - **Pastas a Ignorar**: Lista de pastas que serão ignoradas (node_modules, .git, etc.)
-   - **Filtro de Extensões**: Permite filtrar arquivos por extensão
 
 3. **Formatos de Saída**
    - **Markdown**: Formato de texto com ícones e estrutura visual
@@ -1442,7 +1135,7 @@ Este aplicativo permite gerar representações visuais da estrutura de diretóri
 4. **Ações**
    - **Salvar**: Salva a visualização em um arquivo
    - **Copiar**: Copia o conteúdo para a área de transferência
-   - **Visualizar no Navegador**: Abre a visualização no navegador padrão
+   - **Visualizar**: Abre a visualização no navegador padrão
 
 ## Atalhos de Teclado
 
@@ -1456,13 +1149,11 @@ Este aplicativo permite gerar representações visuais da estrutura de diretóri
 
 - O node_modules e outras pastas comuns são ignoradas por padrão
 - Use o filtro de extensões para focar em tipos específicos de arquivos
-- O tema escuro pode ser ativado pelo botão no canto superior direito
-"""
+- O tema escuro pode ser ativado pelo botão no canto superior direito"""
         
         texto_ajuda.insert(tk.END, conteudo_ajuda)
         texto_ajuda.configure(state=tk.DISABLED)
         
-        # Botão para fechar
         botao_fechar = ttk.Button(
             frame_ajuda,
             text="Fechar",
@@ -1480,19 +1171,16 @@ Este aplicativo permite gerar representações visuais da estrutura de diretóri
                 with open(caminho_config, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     
-                # Carregar tema
                 if "tema_escuro" in config:
                     self.tema_escuro.set(config["tema_escuro"])
                     self.tema_atual = "escuro" if config["tema_escuro"] else "claro"
                     self.aplicar_tema()
                     
-                # Carregar histórico
                 if "historico" in config and isinstance(config["historico"], list):
                     self.historico_diretorios = [d for d in config["historico"] if os.path.isdir(d)]
                     if self.historico_diretorios:
                         self.combo_historico['values'] = self.historico_diretorios
                         
-                # Carregar outras configurações
                 if "incluir_ocultos" in config:
                     self.incluir_ocultos.set(config["incluir_ocultos"])
                     
