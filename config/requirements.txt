@@ -1,0 +1,23 @@
+# Python App Launcher - Dependências
+# Versão: 2.0.0
+
+# Bibliotecas principais
+psutil>=5.9.0
+typing-extensions>=4.0.0
+
+# Bibliotecas para IA
+requests>=2.28.0  # Para comunicação com Ollama
+urllib3>=1.26.0   # Para requisições HTTP
+
+# Bibliotecas opcionais para funcionalidades avançadas
+pillow>=9.0.0  # Para manipulação de imagens
+colorama>=0.4.5  # Para cores no terminal
+tqdm>=4.64.0  # Para barras de progresso
+
+# Bibliotecas de desenvolvimento (opcional)
+pytest>=7.0.0  # Para testes
+black>=22.0.0  # Para formatação de código
+flake8>=5.0.0  # Para linting
+
+# NOTA: Ollama deve ser instalado separadamente
+# Download: https://ollama.ai/download 

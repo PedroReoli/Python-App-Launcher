@@ -6,7 +6,8 @@
     "FolderStructurizer.py",
     "GeoJsonReader.py",
     "MacroManager.py",
-    "WebDriver.py"
+    "WebDriver.py",
+    "PdfReader.py"
   ],
   "Automações": [
     "Clicker.py",

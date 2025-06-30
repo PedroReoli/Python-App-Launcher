@@ -27,17 +27,23 @@
     ]
   },
   "Clicker.py": {
-    "last_run": "13/05/2025 17:51",
-    "run_count": 1,
-    "total_runtime": 95.29786801338196,
-    "avg_cpu": 0.0,
-    "avg_memory": 41.58185763888889,
+    "last_run": "20/05/2025 16:38",
+    "run_count": 2,
+    "total_runtime": 129.25477838516235,
+    "avg_cpu": 2.1,
+    "avg_memory": 39.38818359375,
     "run_history": [
       {
         "date": "13/05/2025 17:53",
         "runtime": 95.29786801338196,
         "avg_cpu": 0.0,
         "avg_memory": 41.58185763888889
+      },
+      {
+        "date": "20/05/2025 16:39",
+        "runtime": 33.956910371780396,
+        "avg_cpu": 2.1,
+        "avg_memory": 39.38818359375
       }
     ]
   },
@@ -81,6 +87,14 @@
     "run_history": []
   },
   "WebDriver.py": {
+    "last_run": "Nunca",
+    "run_count": 0,
+    "total_runtime": 0,
+    "avg_cpu": 0,
+    "avg_memory": 0,
+    "run_history": []
+  },
+  "PdfReader.py": {
     "last_run": "Nunca",
     "run_count": 0,
     "total_runtime": 0,

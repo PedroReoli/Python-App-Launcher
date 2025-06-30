@@ -6,7 +6,8 @@
     "FolderStructurizer.py": "Doing",
     "GeoJsonReader.py": "To Do",
     "MacroManager.py": "Doing",
-    "WebDriver.py": "To Do"
+    "WebDriver.py": "To Do",
+    "PdfReader.py": "To Do"
   },
   "columns": [
     "To Do",

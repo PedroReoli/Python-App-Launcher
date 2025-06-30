@@ -112,5 +112,19 @@
     "dependencies": [
       "undetected_chromedriver"
     ]
+  },
+  "PdfReader.py": {
+    "name": "Pdfreader",
+    "description": "Aplicação Python",
+    "category": "Outros",
+    "color": "#ff7675",
+    "icon": "",
+    "tags": [],
+    "dependencies": [
+      "pdfplumber",
+      "filedialog",
+      "Thread",
+      "pandas"
+    ]
   }
 }

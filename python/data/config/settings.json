@@ -1,0 +1,61 @@
+{
+  "theme": "light",
+  "colors": {
+    "light": {
+      "primary": "#0080c0",
+      "primary_light": "#7590d5",
+      "secondary": "#00b894",
+      "accent": "#fdcb6e",
+      "danger": "#e74c3c",
+      "background": "#f8f9fa",
+      "card": "#ffffff",
+      "text": "#2d3436",
+      "text_light": "#636e72",
+      "border": "#e0e0e0",
+      "kanban_todo": "#f8d7da",
+      "kanban_doing": "#fff3cd",
+      "kanban_done": "#d4edda"
+    },
+    "dark": {
+      "primary": "#4a6baf",
+      "primary_light": "#8ba3e0",
+      "secondary": "#00b894",
+      "accent": "#ffd87f",
+      "danger": "#ff6b6b",
+      "background": "#1e272e",
+      "card": "#2d3436",
+      "text": "#f5f6fa",
+      "text_light": "#dfe6e9",
+      "border": "#485460",
+      "kanban_todo": "#6b2d2d",
+      "kanban_doing": "#6b5d2d",
+      "kanban_done": "#2d6b41"
+    }
+  },
+  "font": {
+    "family": "Arial",
+    "size": {
+      "small": 9,
+      "normal": 11,
+      "large": 12,
+      "title": 16
+    }
+  },
+  "layout": {
+    "card_size": 160,
+    "max_columns": 5,
+    "show_description_in_grid": true,
+    "compact_list_view": false,
+    "show_tags_in_list": true,
+    "show_metrics_in_list": true
+  },
+  "behavior": {
+    "confirm_app_close": true,
+    "auto_check_dependencies": true,
+    "show_notifications": true,
+    "auto_refresh_interval": 0,
+    "default_view": "grid",
+    "default_sort": "name",
+    "default_sort_direction": "asc"
+  }
+}
