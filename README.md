@@ -1,214 +1,151 @@
-# Python App Launcher
+# Auto Clicker - Automatizador de Cliques
 
-Um lançador de aplicativos profissional e minimalista desenvolvido em Python com interface PyQt5.
+Um aplicativo Python com interface gráfica para automatizar cliques na tela, permitindo criar sequências de cliques personalizadas para rotinas automatizadas.
 
-## 🚀 Características
+## 🚀 Funcionalidades
 
-- **Interface Profissional**: Design moderno e responsivo usando PyQt5
-- **Detecção Automática**: Escaneia automaticamente aplicativos em diferentes linguagens
-- **Inferência Inteligente**: Detecta automaticamente a linguagem de programação
-- **Organização por Tags**: Sistema de tags para categorizar aplicativos
-- **Pesquisa e Filtros**: Busca rápida e filtros por linguagem e tags
-- **Execução Segura**: Executa aplicativos sem alterar o diretório de trabalho
-- **Configurações Flexíveis**: Sistema completo de configurações personalizáveis
+- **Captura de Coordenadas**: Capture posições do mouse para criar sequências de cliques
+- **Configuração de Delays**: Defina intervalos entre cliques e repetições
+- **Repetições**: Execute a mesma sequência múltiplas vezes
+- **Sequências Salvas**: Salve e carregue sequências personalizadas
+- **Hotkeys**: Use teclas de atalho para controle rápido
+- **Interface Intuitiva**: Interface gráfica moderna e fácil de usar
 
 ## 📋 Pré-requisitos
 
 - Python 3.7 ou superior
-- PyQt5
+- Windows 10/11 (testado)
 
 ## 🛠️ Instalação
 
-1. **Clone o repositório:**
+1. **Clone ou baixe o projeto**
+2. **Instale as dependências**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## 🎯 Como Usar
+
+### 1. Executar o Aplicativo
 ```bash
-git clone <url-do-repositorio>
-cd Python-App-Launcher
+python app_launcher.py
 ```
 
-2. **Instale as dependências:**
-```bash
-pip install -r requirements.txt
-```
+### 2. Configurar Parâmetros
+- **Delay entre cliques**: Tempo em segundos entre cada clique
+- **Número de repetições**: Quantas vezes executar a sequência completa
+- **Delay entre repetições**: Tempo de espera entre cada repetição
 
-3. **Execute a aplicação:**
-```bash
-python main.py
-```
+### 3. Capturar Coordenadas
+1. Clique em **"Capturar Coordenadas (F6)"**
+2. Posicione o mouse onde deseja clicar
+3. Pressione **F6** para capturar a posição
+4. Repita para adicionar mais pontos à sequência
+
+### 4. Executar Automação
+1. Configure os parâmetros desejados
+2. Clique em **"Iniciar Automação (F7)"**
+3. Para parar, pressione **Ctrl+Alt+S**
+
+### 5. Salvar/Carregar Sequências
+- **Salvar**: Capture coordenadas e clique em "Salvar Sequência"
+- **Carregar**: Selecione uma sequência salva e clique em "Carregar Sequência"
+- **Deletar**: Selecione e clique em "Deletar Sequência"
+
+## ⌨️ Hotkeys
+
+| Tecla | Função |
+|-------|--------|
+| F6 | Capturar coordenada atual |
+| F7 | Iniciar automação |
+| Ctrl+Alt+S | Parar automação |
 
 ## 📁 Estrutura do Projeto
 
 ```
 Python-App-Launcher/
-├── main.py                 # Ponto de entrada da aplicação
-├── requirements.txt        # Dependências do projeto
+├── app_launcher.py          # Aplicativo principal
+├── requirements.txt         # Dependências
 ├── README.md              # Documentação
-├── gui/                   # Módulo de interface gráfica
-│   ├── __init__.py
-│   └── main_window.py     # Janela principal
-├── core/                  # Lógica principal
-│   ├── __init__.py
-│   └── app_manager.py     # Gerenciador de aplicativos
-├── config/                # Configurações
-│   ├── __init__.py
-│   └── settings_manager.py # Gerenciador de configurações
-├── apps/                  # Diretório de aplicativos (criado automaticamente)
-├── data/                  # Dados persistentes (criado automaticamente)
-├── config/                # Arquivos de configuração (criado automaticamente)
-└── assets/                # Recursos (ícones, imagens)
+├── saved_sequences.json   # Sequências salvas (criado automaticamente)
+└── markdown/              # Documentação técnica
+    ├── checklist.md
+    ├── atualizacoes.md
+    └── chat-context.md
 ```
 
-## 🎯 Como Usar
+## 🔧 Configurações Avançadas
 
-### 1. Adicionando Aplicativos
+### PyAutoGUI
+- **FAILSAFE**: Mova o mouse para o canto superior esquerdo para parar
+- **PAUSE**: Pausa padrão entre ações (0.1 segundos)
 
-Coloque seus aplicativos na pasta `apps/` (criada automaticamente). O sistema suporta:
+### Threading
+- A automação roda em thread separada para não travar a interface
+- Interface permanece responsiva durante execução
 
-- **Scripts Python** (.py)
-- **Aplicativos JavaScript** (.js)
-- **Aplicativos Java** (.java, .jar)
-- **Executáveis Windows** (.exe)
-- **Scripts Shell** (.sh)
-- **Scripts Batch** (.bat)
-- **Scripts PowerShell** (.ps1)
-- **E muito mais...**
+## 📊 Formato dos Dados
 
-### 2. Organização
-
-Os aplicativos podem ser organizados em subpastas:
+### Sequências Salvas (JSON)
+```json
+{
+  "nome_da_sequencia": {
+    "name": "nome_da_sequencia",
+    "coordinates": [
+      {
+        "index": 1,
+        "x": 100,
+        "y": 200,
+        "delay": 1.0
+      }
+    ],
+    "delay": "1.0",
+    "repetitions": "1",
+    "repetition_delay": "2.0",
+    "created": "2024-01-01T12:00:00"
+  }
+}
 ```
-apps/
-├── Python/
-│   ├── meu_app.py
-│   └── outro_app.py
-├── JavaScript/
-│   └── web_app.js
-├── Java/
-│   └── aplicativo.jar
-└── Executaveis/
-    └── programa.exe
-```
 
-### 3. Interface
+## ⚠️ Avisos Importantes
 
-- **Lista de Aplicativos**: Exibe todos os aplicativos detectados
-- **Barra de Pesquisa**: Busca rápida por nome
-- **Filtros**: Filtre por linguagem ou tags
-- **Painel de Detalhes**: Informações completas do aplicativo selecionado
-- **Botões de Ação**: Execute aplicativos com um clique
+1. **Use com Responsabilidade**: Automatize apenas tarefas que você tem permissão para automatizar
+2. **Teste Primeiro**: Sempre teste em ambiente seguro antes de usar em produção
+3. **Backup**: Mantenha backup das suas sequências salvas
+4. **Segurança**: O aplicativo pode ser interrompido movendo o mouse para o canto superior esquerdo
 
-## 🔧 Configurações
+## 🐛 Solução de Problemas
 
-As configurações são salvas em `config/settings.json` e incluem:
+### Erro: "ModuleNotFoundError"
+- Instale as dependências: `pip install -r requirements.txt`
 
-- Diretório de aplicativos
-- Tema da interface
-- Tamanho e posição da janela
-- Configurações de execução
-- Preferências de interface
+### Erro: "Permission denied"
+- Execute como administrador se necessário
 
-## 🎨 Temas
+### Aplicativo não responde
+- Pressione Ctrl+Alt+S para parar
+- Mova o mouse para o canto superior esquerdo
 
-A aplicação suporta temas claro e escuro (configurável nas configurações).
+### Hotkeys não funcionam
+- Verifique se não há conflitos com outros aplicativos
+- Reinicie o aplicativo
 
-## 📊 Dados Persistentes
+## 🔄 Versões
 
-Os dados dos aplicativos são salvos em `data/app_data.json` e incluem:
+- **v1.0.0**: Versão inicial com funcionalidades básicas
+  - Captura de coordenadas
+  - Automação de cliques
+  - Salvamento de sequências
+  - Interface gráfica completa
 
-- Nome e caminho do aplicativo
-- Linguagem inferida
-- Comando de execução
-- Tags personalizadas
+## 📝 Licença
 
-## 🚀 Execução de Aplicativos
+Este projeto é de uso livre para fins educacionais e pessoais.
 
-O sistema executa aplicativos de forma segura:
+## 🤝 Contribuições
 
-- **Não altera o diretório de trabalho**
-- **Usa comandos apropriados para cada linguagem**
-- **Suporte multiplataforma** (Windows, Linux, macOS)
-- **Execução não-bloqueante**
-
-## 🔍 Detecção de Linguagens
-
-O sistema detecta automaticamente a linguagem baseada em:
-
-1. **Extensão do arquivo** (.py → Python, .js → JavaScript, etc.)
-2. **Conteúdo do arquivo** (shebang, palavras-chave)
-3. **Permissões de execução** (sistemas Unix)
-
-## 🏷️ Sistema de Tags
-
-Adicione tags personalizadas aos seus aplicativos para melhor organização:
-
-- **Produtividade**
-- **Desenvolvimento**
-- **Jogos**
-- **Ferramentas**
-- **E muito mais...**
-
-## 🛡️ Segurança
-
-- Execução segura de aplicativos
-- Validação de arquivos
-- Tratamento de erros robusto
-- Logs de execução
-
-## 🔧 Desenvolvimento
-
-### Estrutura de Módulos
-
-- **`main.py`**: Inicialização da aplicação PyQt
-- **`gui/main_window.py`**: Interface gráfica principal
-- **`core/app_manager.py`**: Lógica de detecção e execução
-- **`config/settings_manager.py`**: Gerenciamento de configurações
-
-### Adicionando Novas Linguagens
-
-Para adicionar suporte a uma nova linguagem, edite `core/app_manager.py`:
-
-1. Adicione a extensão ao `language_map`
-2. Adicione o comando de execução ao `execution_commands`
-
-### Personalizando a Interface
-
-A interface pode ser personalizada editando `gui/main_window.py`:
-
-- Cores e temas
-- Layout e componentes
-- Comportamento dos widgets
-
-## 📝 Logs
-
-A aplicação gera logs para debugging:
-
-- Detecção de aplicativos
-- Execução de comandos
-- Erros e exceções
-
-## 🤝 Contribuindo
-
-1. Fork o projeto
-2. Crie uma branch para sua feature
-3. Commit suas mudanças
-4. Push para a branch
-5. Abra um Pull Request
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
-
-## 🆘 Suporte
-
-Para suporte e dúvidas:
-
-- Abra uma issue no GitHub
-- Consulte a documentação
-- Verifique os logs de erro
-
-## 🔄 Atualizações
-
-O sistema verifica automaticamente por atualizações e pode ser configurado para atualização automática.
+Sugestões e melhorias são bem-vindas! Entre em contato para contribuir.
 
 ---
 
-**Desenvolvido com ❤️ em Python e PyQt5** 
+**Desenvolvido com ❤️ para automatização de tarefas repetitivas** 
